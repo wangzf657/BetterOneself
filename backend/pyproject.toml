@@ -1,0 +1,49 @@
+[project]
+name = "betteroneself-backend"
+version = "0.1.0"
+description = "BetterOneself 伴学 Agent 后端"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "python-multipart>=0.0.17",
+    "openai>=1.60",
+    "langchain-core>=0.3",
+    "langgraph>=1.0",
+    "langgraph-checkpoint-sqlite>=2.0",
+    "fsrs>=5",
+    "docling>=2.18",
+    "cryptography>=44",
+    "sqlite-vec>=0.1.6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# docling 首次解析需下载模型,标记慢测试默认跳过,CI/本地按需 -m slow
+markers = ["slow: 需要下载模型或真实网络的测试"]
+addopts = "-m 'not slow'"
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["alembic/versions"]  # 自动生成的迁移不手工格式化
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# B008 与 FastAPI Depends 参数默认值惯用法冲突,官方文档建议忽略
+ignore = ["B008"]
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true

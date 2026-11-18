@@ -1,6 +1,7 @@
 # 环境与密钥
 .env
 .env.*
+!.env.example
 
 # 运行数据(SQLite、上传资料、解析产物)
 *.db
@@ -8,6 +9,7 @@
 *.db-wal
 *.db-shm
 uploads/
+backend/data/
 
 # Python
 __pycache__/
@@ -29,3 +31,6 @@ test-results/
 # 系统
 .DS_Store
 Thumbs.db
+
+# Agent
+.zcode/
