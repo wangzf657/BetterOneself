@@ -178,6 +178,113 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/sessions/{session_id}/quizzes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Quizzes
+     * @description 未作答返回 pending 形态(无答案),已作答返回完整结果。
+     */
+    get: operations['list_quizzes_api_sessions__session_id__quizzes_get']
+    put?: never
+    /** Generate */
+    post: operations['generate_api_sessions__session_id__quizzes_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/quizzes/{quiz_id}/answer': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Answer */
+    post: operations['answer_api_quizzes__quiz_id__answer_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/review/queue': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Queue */
+    get: operations['queue_api_review_queue_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/review/params': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Params */
+    get: operations['params_api_review_params_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/studies/{study_id}/cards': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List Cards */
+    get: operations['list_cards_api_studies__study_id__cards_get']
+    put?: never
+    /** Create Card */
+    post: operations['create_card_api_studies__study_id__cards_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/cards/{card_id}/rate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Rate */
+    post: operations['rate_api_cards__card_id__rate_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/health': {
     parameters: {
       query?: never
@@ -199,10 +306,72 @@ export interface paths {
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    /** AnswerIn */
+    AnswerIn: {
+      /** Answer */
+      answer: string
+    }
     /** Body_upload_source_api_studies__study_id__sources_post */
     Body_upload_source_api_studies__study_id__sources_post: {
       /** File */
       file: string
+    }
+    /** CardCreate */
+    CardCreate: {
+      /** Kp Id */
+      kp_id: number
+      /** Front */
+      front: string
+      /**
+       * Back Md
+       * @default
+       */
+      back_md: string
+      /** Chunk Id */
+      chunk_id?: number | null
+      /**
+       * Origin
+       * @default manual_mark
+       * @enum {string}
+       */
+      origin: 'manual_mark' | 'manual_new'
+    }
+    /** CardOut */
+    CardOut: {
+      /** Id */
+      id: number
+      /** Study Id */
+      study_id: number
+      /** Kp Id */
+      kp_id: number
+      /** Front */
+      front: string
+      /** Back Md */
+      back_md: string
+      /** Chunk Id */
+      chunk_id: number | null
+      /** Source Id */
+      source_id?: number | null
+      /**
+       * Origin
+       * @enum {string}
+       */
+      origin: 'auto_quiz' | 'manual_mark' | 'manual_new'
+      /** Status */
+      status: string
+      /**
+       * Due
+       * Format: date-time
+       */
+      due: string
+      /** State */
+      state: string | null
+      /** Stability */
+      stability: number | null
+      /** Difficulty */
+      difficulty: number | null
+      /** Last Review At */
+      last_review_at: string | null
     }
     /** ChatIn */
     ChatIn: {
@@ -282,6 +451,73 @@ export interface components {
       content: string
       /** Citations */
       citations: components['schemas']['Citation'][]
+    }
+    /** QuizOut */
+    QuizOut: {
+      /** Id */
+      id: number
+      /** Session Id */
+      session_id: number
+      /** Kp Id */
+      kp_id: number
+      /**
+       * Q Type
+       * @enum {string}
+       */
+      q_type: 'objective' | 'short_answer'
+      /** Question */
+      question: string
+      /** Options */
+      options: string[]
+      /** Chunk Id */
+      chunk_id: number | null
+      /** Source Id */
+      source_id?: number | null
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /** Answer */
+      answer: string
+      /** User Answer */
+      user_answer: string | null
+      /** Is Correct */
+      is_correct: boolean | null
+      /** Ai Feedback */
+      ai_feedback: string | null
+    }
+    /** QuizPending */
+    QuizPending: {
+      /** Id */
+      id: number
+      /** Session Id */
+      session_id: number
+      /** Kp Id */
+      kp_id: number
+      /**
+       * Q Type
+       * @enum {string}
+       */
+      q_type: 'objective' | 'short_answer'
+      /** Question */
+      question: string
+      /** Options */
+      options: string[]
+      /** Chunk Id */
+      chunk_id: number | null
+      /** Source Id */
+      source_id?: number | null
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+    }
+    /** RateIn */
+    RateIn: {
+      /** Rating */
+      rating: number
     }
     /** SessionCreate */
     SessionCreate: {
@@ -917,6 +1153,259 @@ export interface operations {
         }
         content: {
           'application/json': unknown
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_quizzes_api_sessions__session_id__quizzes_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        session_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: unknown
+          }[]
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  generate_api_sessions__session_id__quizzes_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        session_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['QuizPending'][]
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  answer_api_quizzes__quiz_id__answer_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        quiz_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AnswerIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['QuizOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  queue_api_review_queue_get: {
+    parameters: {
+      query?: {
+        study_id?: number | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CardOut'][]
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  params_api_review_params_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: unknown
+          }
+        }
+      }
+    }
+  }
+  list_cards_api_studies__study_id__cards_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        study_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CardOut'][]
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  create_card_api_studies__study_id__cards_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        study_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CardCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CardOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  rate_api_cards__card_id__rate_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        card_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RateIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CardOut']
         }
       }
       /** @description Validation Error */

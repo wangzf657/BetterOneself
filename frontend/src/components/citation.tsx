@@ -42,9 +42,7 @@ export function RichMessage({
         const m = para.match(/(?:\[\d+\])+[。.!?!!??\s]*$/)
         if (!m || m.index === undefined) return <p key={i}>{para}</p>
         const body = para.slice(0, m.index)
-        const nums = [...para.slice(m.index).matchAll(/\[(\d+)\]/g)].map((x) =>
-          Number(x[1]),
-        )
+        const nums = [...para.slice(m.index).matchAll(/\[(\d+)\]/g)].map((x) => Number(x[1]))
         return (
           <p key={i}>
             {body}

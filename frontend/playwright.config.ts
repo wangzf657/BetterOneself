@@ -5,6 +5,7 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   testDir: './e2e',
   timeout: 120_000,
+  workers: 1, // 共享同一个 stub 后端库,必须串行
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'retain-on-failure',

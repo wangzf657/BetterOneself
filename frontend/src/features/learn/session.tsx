@@ -1,26 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { BookmarkPlus, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { RichMessage } from '@/components/citation'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { QuizPanel, SaveCardForm } from '@/features/learn/quiz-panel'
 import { api, streamChat, type Schemas } from '@/lib/api'
 
 type Citation = Schemas['Citation']
 
-/** 学习会话页(页面清单 #8/§3):任务头+对话流+源文侧栏;输入框发送 SSE 流式讲解 */
+/** 学习会话页(页面清单 #8/§3):任务头+对话流(含测验)+源文侧栏;输入框 SSE 流式讲解 */
 export function LearnPage() {
   const { sessionId } = useParams()
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
   const [live, setLive] = useState<string | null>(null) // 流式中的回答
   const [sidebarCite, setSidebarCite] = useState<Citation | null>(null)
+  const [saveOpen, setSaveOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const { data: session } = useQuery({
@@ -130,12 +133,23 @@ export function LearnPage() {
                   提个问题开始学习——讲解默认引导式,回答会带来源引用。
                 </div>
               )}
+              {/* 内嵌测验(M3-04) */}
+              <QuizPanel sessionId={session.id} studyId={session.study_id} />
             </div>
           </div>
 
           {/* 输入区 */}
           <div className="border-t px-6 py-3">
             <div className="mx-auto flex max-w-2xl items-end gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="存为卡片"
+                title="把这段讲解存为复习卡片"
+                onClick={() => setSaveOpen(true)}
+              >
+                <BookmarkPlus size={16} />
+              </Button>
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -159,6 +173,24 @@ export function LearnPage() {
         {/* 源文侧栏 */}
         {sidebarCite && <SourceSidebar cite={sidebarCite} />}
       </div>
+
+      {/* 存为卡片(M3-05 手动沉淀);key 重挂载以重置预填 */}
+      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>存为复习卡片</DialogTitle>
+          </DialogHeader>
+          {saveOpen && (
+            <SaveCardForm
+              key={`save-${session.id}-${session.messages.length}`}
+              onDone={() => setSaveOpen(false)}
+              studyId={session.study_id}
+              kpId={session.kp_id}
+              prefill={session.messages.findLast((m) => m.role === 'assistant')?.content ?? ''}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

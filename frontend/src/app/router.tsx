@@ -7,6 +7,7 @@ import { SourcesPage } from '@/features/sources/manage'
 import { SourceReadPage } from '@/features/sources/read'
 import { KnowledgePage } from '@/features/knowledge/page'
 import { LearnPage } from '@/features/learn/session'
+import { ReviewPage } from '@/features/review/page'
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/', element: <TodayPage /> },
       { path: '/studies', element: <StudiesPage /> },
+      { path: '/review', element: <ReviewPage /> },
       {
         path: '/studies/:id',
         element: <StudyLayout />,
