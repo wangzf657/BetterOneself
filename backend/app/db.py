@@ -32,7 +32,8 @@ class Base(DeclarativeBase):
 
 
 def utcnow() -> datetime:
-    return datetime.now(UTC)
+    """库内约定:naive UTC(SQLite DateTime 不带 tz;py-fsrs 的 aware 值在边界转换)。"""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 _engine: Engine | None = None

@@ -70,3 +70,49 @@ def lecture_messages(
         *history,
         {"role": "user", "content": payload},
     ]
+
+
+QUIZ_GEN_SYSTEM = """__TASK__QUIZ_GEN__
+你是出题引擎。依据资料切片为知识点出 3 道测验题:2 道客观单选(objective)+ 1 道简答(short_answer)。
+输出 JSON:{"quizzes": [{"q_type": "objective"|"short_answer", "question": str,
+"options": [四个选项], "answer": str, "chunk_id": int}]}
+规则:
+- 客观题 answer 必须是 options 之一的原文;简答题 options 为空数组
+- 题目必须能仅凭给定切片内容作答;考查理解而非原文背诵
+- chunk_id 指向题目依据的切片
+- 只输出 JSON"""
+
+
+def quiz_gen_messages(kp_name: str, chunks: list[dict]) -> list[dict]:
+    payload = (
+        f"知识点:{kp_name}\n```chunks\n"
+        + json.dumps(chunks, ensure_ascii=False)
+        + "\n```"
+    )
+    return [
+        {"role": "system", "content": QUIZ_GEN_SYSTEM},
+        {"role": "user", "content": payload},
+    ]
+
+
+QUIZ_GRADE_SYSTEM = """__TASK__QUIZ_GRADE__
+你是简答判分器。对照参考答案评判学习者作答,输出 JSON:{"is_correct": bool, "feedback": str}
+规则:
+- 判分从宽:核心概念正确、无关键性错误即 is_correct=true;表述差异不扣分
+- feedback 一两句:对在哪里/缺了什么;答错时指出该回到哪个点
+- 只输出 JSON"""
+
+
+def quiz_grade_messages(question: str, reference: str, user_answer: str) -> list[dict]:
+    payload = (
+        "```quiz\n"
+        + json.dumps(
+            {"question": question, "reference": reference, "answer": user_answer},
+            ensure_ascii=False,
+        )
+        + "\n```"
+    )
+    return [
+        {"role": "system", "content": QUIZ_GRADE_SYSTEM},
+        {"role": "user", "content": payload},
+    ]

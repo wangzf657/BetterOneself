@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from alembic import command
-from app.api import knowledge, sessions, sources, studies
+from app.api import cards, knowledge, quizzes, sessions, sources, studies
 from app.config import BACKEND_DIR
 
 
@@ -41,6 +41,8 @@ app.include_router(studies.router)
 app.include_router(sources.router)
 app.include_router(knowledge.router)
 app.include_router(sessions.router)
+app.include_router(quizzes.router)
+app.include_router(cards.router)
 
 
 @app.get("/api/health")

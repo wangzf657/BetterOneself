@@ -16,6 +16,10 @@ def stub_chat(messages: list[dict]) -> str:
         return _knowledge_extract(text)
     if "__TASK__LECTURE__" in text:
         return _lecture(text)
+    if "__TASK__QUIZ_GEN__" in text:
+        return _quiz_gen(text)
+    if "__TASK__QUIZ_GRADE__" in text:
+        return _quiz_grade(text)
     return "(stub)未识别任务,请检查提示词是否带 __TASK__ 标记。"
 
 
@@ -57,3 +61,62 @@ def _lecture(text: str) -> str:
     first = chunks[0]
     body = _HEADING.sub("", first.get("content", "")).strip()
     return f"{first.get('heading_path', '本节')} 的要点:{body[:120]}。以上内容来自资料 [1]。"
+
+
+def _quiz_gen(text: str) -> str:
+    chunks = _load_chunks(text)
+    first = chunks[0] if chunks else {"chunk_id": 0, "content": "", "heading_path": ""}
+    body = _HEADING.sub("", str(first.get("content", ""))).strip()
+    sentence = body.split("。")[0].strip() or body[:30]
+    words = [w for w in re.split(r"[,,。; ;]", sentence) if len(w) >= 2]
+    answer = words[0] if words else "概念"
+    blanked = sentence.replace(answer, "____", 1)
+    return json.dumps(
+        {
+            "quizzes": [
+                {
+                    "q_type": "objective",
+                    "question": f"填空:{blanked}",
+                    "options": [answer, "以上都不对", "无法从资料判断", "资料未提及"],
+                    "answer": answer,
+                    "chunk_id": first.get("chunk_id"),
+                },
+                {
+                    "q_type": "objective",
+                    "question": f"以下哪项正确描述了「{first.get('heading_path') or '本节'}」?",
+                    "options": [sentence, "与资料相反的说法", "无关领域的说法", "资料未涉及"],
+                    "answer": sentence,
+                    "chunk_id": first.get("chunk_id"),
+                },
+                {
+                    "q_type": "short_answer",
+                    "question": f"用自己的话解释:{first.get('heading_path') or body[:20]}",
+                    "options": [],
+                    "answer": sentence,
+                    "chunk_id": first.get("chunk_id"),
+                },
+            ]
+        },
+        ensure_ascii=False,
+    )
+
+
+def _quiz_grade(text: str) -> str:
+    m = re.search(r"```quiz\n(.*?)\n```", text, re.DOTALL)
+    try:
+        data = json.loads(m.group(1)) if m else {}
+    except json.JSONDecodeError:
+        data = {}
+    reference = data.get("reference", "")
+    answer = data.get("answer", "")
+    # 确定性判分:字符二元组重叠率 >0.3 视为掌握核心概念
+    ref_bigrams = {reference[i : i + 2] for i in range(len(reference) - 1)}
+    ans_bigrams = {answer[i : i + 2] for i in range(len(answer) - 1)}
+    overlap = len(ref_bigrams & ans_bigrams) / max(len(ref_bigrams), 1)
+    correct = overlap > 0.3
+    feedback = (
+        f"核心概念一致(重叠率 {overlap:.0%}),通过。"
+        if correct
+        else f"与参考答案重叠不足({overlap:.0%}),建议回看源文后复述要点。"
+    )
+    return json.dumps({"is_correct": correct, "feedback": feedback}, ensure_ascii=False)
