@@ -14,7 +14,14 @@ class Config(BaseSettings):
     )
 
     data_dir: Path = BACKEND_DIR / "data"
-    uploads_dir: Path = BACKEND_DIR / "data" / "uploads"
+
+    @property
+    def uploads_dir(self) -> Path:
+        return self.data_dir / "uploads"
+
+    @property
+    def db_url(self) -> str:
+        return f"sqlite:///{self.data_dir / 'app.db'}"
 
     llm_base_url: str = "https://open.bigmodel.cn/api/coding/paas/v4"
     llm_api_key: str = ""
@@ -27,10 +34,8 @@ class Config(BaseSettings):
     stub_llm: bool = False
     # E2E 时间跳跃:模拟"今天"的 ISO 日期
     fake_today: str | None = None
-
-    @property
-    def db_url(self) -> str:
-        return f"sqlite:///{self.data_dir / 'app.db'}"
+    # E2E 干净起跑:启动时清空数据目录(webServer 起在 globalSetup 之前,外部清理会踩时序)
+    reset_db: bool = False
 
 
 @lru_cache

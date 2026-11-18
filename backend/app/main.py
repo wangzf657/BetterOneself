@@ -13,6 +13,13 @@ from app.config import BACKEND_DIR
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    from app.config import get_config
+
+    if get_config().reset_db:
+        import shutil
+
+        shutil.rmtree(get_config().data_dir, ignore_errors=True)
+        get_config().uploads_dir.mkdir(parents=True, exist_ok=True)  # get_config 已缓存,需手动重建
     # 启动即迁到最新,单机自用免手工步骤;已在 head 时为空操作
     cfg = AlembicConfig(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
