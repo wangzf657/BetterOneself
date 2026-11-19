@@ -41,7 +41,8 @@ test('M1 能学主链路', async ({ page }) => {
     .getByRole('button', { name: '开始学习' })
     .click()
   await expect(page.getByText('学习会话 · 讲解')).toBeVisible()
-  await expect(page.getByText('苏格拉底引导')).toBeVisible()
+  await expect(page.getByText('引导你思考')).toBeVisible()
+  await expect(page.getByTestId('kp-preview')).toBeVisible() // 原文预习面板
 
   // 提问 → 流式回答 + 引用角标
   await page.getByPlaceholder(/就当前知识点提问/).fill('什么是移动语义?')

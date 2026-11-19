@@ -73,11 +73,11 @@ export function LearnPage() {
           学习会话 · {session.session_type === 'lecture' ? '讲解' : session.session_type}
         </h1>
         <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-          <span>苏格拉底引导</span>
+          <span title="引导模式:AI 先给提示引导你思考,不直接给答案;关掉后直接讲解">引导你思考</span>
           <Switch
             checked={session.socratic_mode}
             onCheckedChange={(on) => toggleSocratic.mutate(on)}
-            aria-label="切换苏格拉底模式"
+            aria-label="切换引导模式(开=引导思考,关=直接讲解)"
           />
         </div>
         <Button
