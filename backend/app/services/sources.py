@@ -1,6 +1,7 @@
 """资料管理与解析流水线(M1-02/05/06):上传→后台解析→切片→向量化→ready。"""
 
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -91,6 +92,55 @@ def schedule_parse(tasks: BackgroundTasks, source_id: int) -> None:
     tasks.add_task(run_parse, source_id)
 
 
+def retry_decompose(db: Session, tasks: BackgroundTasks, study_id: int) -> None:
+    """拆解重试入口(M1-06):先同步置 running,再后台重跑,前端立即可见状态。"""
+    from app.models import Study
+
+    study = db.get(Study, study_id)
+    if study is None:
+        return
+    study.decompose_status = "running"
+    study.decompose_error = None
+    db.commit()
+    tasks.add_task(run_decompose, study_id)
+
+
+def run_decompose(study_id: int) -> None:
+    """后台拆解:对该 study 全部 ready 资料重跑;先清本资料旧知识点保证幂等。"""
+    from app.models import Source, Study, StudySource
+    from app.services import knowledge
+
+    with Session(get_engine()) as db:
+        source_ids = db.scalars(
+            select(Source.id)
+            .join(StudySource, StudySource.source_id == Source.id)
+            .where(StudySource.study_id == study_id, Source.parse_status == "ready")
+        ).fetchall()
+        if not source_ids or db.get(Study, study_id) is None:
+            return
+        try:
+            for source_id in source_ids:
+                knowledge.delete_source_kps(db, [study_id], source_id)
+                db.flush()
+                knowledge.decompose_source(db, study_id, source_id)
+                db.commit()
+            study = db.get(Study, study_id)
+            if study is None:
+                return
+            study.decompose_status = "done"
+            db.commit()
+        except Exception as exc:  # noqa: BLE001 失败落状态可再重试(M1-06)
+            db.rollback()
+            db.expire_all()
+            study = db.get(Study, study_id)
+            if study is None:
+                return
+            study.decompose_status = "failed"
+            study.decompose_error = str(exc)[:500]
+            db.commit()
+            print(f"[decompose] study={study_id} 拆解失败: {exc}", file=sys.stderr)
+
+
 def run_parse(source_id: int) -> None:
     """后台解析入口:独立会话,状态机 pending/processing→ready/failed 落库(M1-06)。"""
     with Session(get_engine()) as db:
@@ -122,18 +172,34 @@ def run_parse(source_id: int) -> None:
             db.commit()
             return
 
-        # 导入完成即拆解(M2-01):每个关联 study 各拆一份;拆解失败不影响解析结果
+        # 导入完成即拆解(M2-01):每个关联 study 各拆一份;失败落 study 状态可重试(M1-06)
+        from app.models import Study
         from app.services import knowledge
 
         study_ids = db.scalars(
             select(StudySource.study_id).where(StudySource.source_id == source.id)
         ).fetchall()
         for study_id in study_ids:
+            study = db.get(Study, study_id)
+            if study is None:
+                continue
+            study.decompose_status = "running"
+            study.decompose_error = None
+            db.commit()
             try:
                 knowledge.decompose_source(db, study_id, source.id)
+                study.decompose_status = "done"
                 db.commit()
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 失败必须可见,不许静默(M2-01)
                 db.rollback()
+                db.expire_all()
+                study = db.get(Study, study_id)
+                if study is None:
+                    continue
+                study.decompose_status = "failed"
+                study.decompose_error = str(exc)[:500]
+                db.commit()
+                print(f"[decompose] study={study_id} 拆解失败: {exc}", file=sys.stderr)
 
 
 def _replace_chunks(db: Session, source: Source, content_md: str) -> None:

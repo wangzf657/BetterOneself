@@ -6,8 +6,19 @@
 import json
 import re
 
-_CHUNKS = re.compile(r"```chunks\n(.*?)\n```", re.DOTALL)
 _HEADING = re.compile(r"^#{1,2}\s+(.+)$", re.MULTILINE)
+
+
+def _load_block(text: str, marker: str) -> object | None:
+    """从 ```<marker> 块中解析首个 JSON 值(raw_decode):内容含代码围栏不截断。"""
+    m = re.search(rf"```{marker}\n", text)
+    if not m:
+        return None
+    try:
+        data, _ = json.JSONDecoder().raw_decode(text[m.end() :].lstrip())
+        return data
+    except json.JSONDecodeError:
+        return None
 
 
 def stub_chat(messages: list[dict]) -> str:
@@ -28,14 +39,10 @@ def stub_chat(messages: list[dict]) -> str:
 
 
 def _load_chunks(text: str) -> list[dict]:
-    m = _CHUNKS.search(text)
-    if not m:
-        return []
-    try:
-        data = json.loads(m.group(1))
-        return data if isinstance(data, list) else data.get("chunks", [])
-    except json.JSONDecodeError:
-        return []
+    data = _load_block(text, "chunks")
+    if isinstance(data, list):
+        return data
+    return data.get("chunks", []) if isinstance(data, dict) else []
 
 
 def _knowledge_extract(text: str) -> str:
@@ -119,10 +126,8 @@ def _quiz_gen(text: str) -> str:
 
 
 def _quiz_grade(text: str) -> str:
-    m = re.search(r"```quiz\n(.*?)\n```", text, re.DOTALL)
-    try:
-        data = json.loads(m.group(1)) if m else {}
-    except json.JSONDecodeError:
+    data = _load_block(text, "quiz")
+    if not isinstance(data, dict):
         data = {}
     reference = data.get("reference", "")
     answer = data.get("answer", "")
@@ -140,10 +145,8 @@ def _quiz_grade(text: str) -> str:
 
 
 def _deps_infer(text: str) -> str:
-    m = re.search(r"```kps\n(.*?)\n```", text, re.DOTALL)
-    try:
-        kps = json.loads(m.group(1)) if m else []
-    except json.JSONDecodeError:
+    kps = _load_block(text, "kps")
+    if not isinstance(kps, list):
         kps = []
     # 确定性推断:列表顺序即章节顺序,相邻链式依赖
     edges = [

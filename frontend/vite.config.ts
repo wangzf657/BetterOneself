@@ -15,7 +15,7 @@ export default defineConfig({
     proxy: {
       // 开发期 API 与 SSE 直通后端,免 CORS 配置
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: `http://127.0.0.1:${process.env.E2E_API_PORT ?? 8000}`,
         changeOrigin: true,
       },
     },

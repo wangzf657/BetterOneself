@@ -87,12 +87,12 @@ def chat_stream(
 
 
 def _record_usage(scene: str, resp) -> None:
-    usage = getattr(resp, "usage", None)
-    if usage is None:
+    u = getattr(resp, "usage", None)
+    if u is None:
         return
-    from app.services import usage
+    from app.services import usage as usage_svc
 
-    usage.record(scene, usage.prompt_tokens or 0, usage.completion_tokens or 0)
+    usage_svc.record(scene, u.prompt_tokens or 0, u.completion_tokens or 0)
 
 
 def parse_json[T: BaseModel](

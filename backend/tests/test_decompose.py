@@ -1,8 +1,10 @@
-"""M2-01:拆解流水线。装配逻辑单测 + 上传→自动拆解集成。"""
+"""M2-01/06:拆解流水线。装配逻辑单测 + 上传→自动拆解集成 + 拆解状态可见与重试。"""
 
 import io
+from types import SimpleNamespace
 
 from app.agents.decompose import assemble_node
+from app.models import UsageDay
 
 
 def _state(extracted, chunks):
@@ -109,3 +111,68 @@ def test_reparse_regenerates_tree_without_duplicates(client):
     tree = client.get(f"/api/studies/{study['id']}/knowledge").json()
     names = [n["name"] for n in tree] + [c["name"] for n in tree for c in n["children"]]
     assert len(names) == len(set(names)), "重解析后知识点不应重复"
+
+
+def test_record_usage_with_real_response(db):
+    """回归(M2-01):真实 LLM 调用成功后记用量不得抛错——曾因局部变量遮蔽 usage 模块,
+    每批拆解在记用量时 AttributeError 全部失败且被静默吞掉。"""
+    from sqlalchemy import select
+
+    from app.agents import llm
+
+    resp = SimpleNamespace(usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5))
+    llm._record_usage("decompose", resp)
+    row = db.scalar(select(UsageDay).where(UsageDay.scene == "decompose"))
+    assert row is not None and row.prompt_tokens == 10 and row.requests == 1
+
+
+def test_decompose_status_done_after_import(client):
+    study = client.post("/api/studies", json={"name": "Rust", "goal": "g"}).json()
+    assert client.get(f"/api/studies/{study['id']}/decompose-status").json() == {
+        "status": "idle",
+        "error": None,
+    }
+    client.post(
+        f"/api/studies/{study['id']}/sources",
+        files={"file": ("a.md", io.BytesIO("# A\n内容".encode()), "text/markdown")},
+    )
+    assert client.get(f"/api/studies/{study['id']}/decompose-status").json()["status"] == "done"
+
+
+def test_decompose_failure_marks_study_and_retry_works(client, monkeypatch):
+    """拆解批次全败不得静默成功:状态落 failed 可见,重试端点能恢复到 done。"""
+    from app.agents import decompose as decompose_mod
+
+    study = client.post("/api/studies", json={"name": "Rust", "goal": "g"}).json()
+    monkeypatch.setattr(
+        decompose_mod,
+        "run_pipeline",
+        lambda chunks: {"tree": [], "errors": ["batch@0: 模型不可用"]},
+    )
+    client.post(
+        f"/api/studies/{study['id']}/sources",
+        files={"file": ("a.md", io.BytesIO("# A\n内容".encode()), "text/markdown")},
+    )
+    status = client.get(f"/api/studies/{study['id']}/decompose-status").json()
+    assert status["status"] == "failed"
+    assert "模型不可用" in status["error"]
+
+    monkeypatch.undo()  # 恢复真实(stub)流水线后重试
+    resp = client.post(f"/api/studies/{study['id']}/decompose")
+    assert resp.status_code == 202
+    assert client.get(f"/api/studies/{study['id']}/decompose-status").json()["status"] == "done"
+    tree = client.get(f"/api/studies/{study['id']}/knowledge").json()
+    assert tree, "重试后应拆出知识点"
+
+
+def test_stub_extracts_kp_from_fenced_chunk():
+    """stub 对含代码围栏的切片仍能解析出知识点(raw_decode 不被内部 ``` 截断)。"""
+    from app.agents import prompts, stubs
+
+    chunk = {
+        "chunk_id": 7,
+        "heading_path": "工具 > 声明工具",
+        "content": "```\ntool_calls: [{name: 'x'}]\n```",
+    }
+    out = stubs.stub_chat(prompts.decompose_messages([chunk]))
+    assert '"kps"' in out and "声明工具" in out

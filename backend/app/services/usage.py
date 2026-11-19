@@ -15,7 +15,9 @@ def record(scene: str, prompt_tokens: int, completion_tokens: int, requests: int
             day = date.today()
             row = db.scalar(select(UsageDay).where(UsageDay.date == day, UsageDay.scene == scene))
             if row is None:
-                row = UsageDay(date=day, scene=scene)
+                # 显式置零:Python 侧 default 要到 flush 才生效,直接 += 会 None+int 炸
+                row = UsageDay(date=day, scene=scene, prompt_tokens=0,
+                               completion_tokens=0, requests=0)
                 db.add(row)
             row.prompt_tokens += prompt_tokens
             row.completion_tokens += completion_tokens

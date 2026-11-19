@@ -47,6 +47,16 @@ export function KnowledgePage() {
     queryKey: ['knowledge', studyId],
     queryFn: () => api<KpNode[]>(`/api/studies/${studyId}/knowledge`),
   })
+  // 拆解在解析完成后仍在后台跑(M1-06):空树时轮询状态,完成/失败即时可见
+  const { data: decompose } = useQuery({
+    queryKey: ['decompose-status', studyId],
+    queryFn: () =>
+      api<{ status: string; error: string | null }>(
+        `/api/studies/${studyId}/decompose-status`,
+      ),
+    enabled: tree?.length === 0,
+    refetchInterval: (q) => (q.state.data?.status === 'running' ? 3000 : false),
+  })
   const { data: graph } = useQuery({
     queryKey: ['kp-graph', studyId],
     queryFn: () =>
@@ -71,6 +81,20 @@ export function KnowledgePage() {
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   })
+
+  const retryDecompose = useMutation({
+    mutationFn: () =>
+      api<{ status: string }>(`/api/studies/${studyId}/decompose`, { method: 'POST' }),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ['decompose-status', studyId] }),
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  useEffect(() => {
+    if (decompose?.status === 'done') {
+      void queryClient.invalidateQueries({ queryKey: ['knowledge', studyId] })
+    }
+  }, [decompose?.status, queryClient, studyId])
 
   const startSession = useMutation({
     mutationFn: (kpId: number) =>
@@ -131,11 +155,24 @@ export function KnowledgePage() {
 
       {tree?.length === 0 && (
         <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-          还没有知识点。先到
-          <Link to={`/studies/${studyId}/sources`} className="mx-1 underline">
-            资料
-          </Link>
-          页导入内容,导入完成后会自动拆解。
+          {decompose?.status === 'running' ? (
+            <>正在拆解知识点…大资料可能需要几十分钟,可先离开,稍后回来查看。</>
+          ) : decompose?.status === 'failed' ? (
+            <div className="space-y-3">
+              <p>拆解失败:{decompose.error ?? '未知原因'}</p>
+              <Button size="sm" variant="outline" onClick={() => retryDecompose.mutate()}>
+                重试拆解
+              </Button>
+            </div>
+          ) : (
+            <>
+              还没有知识点。先到
+              <Link to={`/studies/${studyId}/sources`} className="mx-1 underline">
+                资料
+              </Link>
+              页导入内容,导入完成后会自动拆解。
+            </>
+          )}
         </div>
       )}
 

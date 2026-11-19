@@ -40,6 +40,9 @@ def decompose_source(db: Session, study_id: int, source_id: int) -> int:
             for c in chunks
         ]
     )
+    if not result["tree"] and result.get("errors"):
+        # 批次错误在 extract_node 已收集;全空说明拆解没产出,必须外露而非静默成功(M2-01)
+        raise RuntimeError(f"拆解批次失败,未产出知识点;首条错误: {result['errors'][0]}")
     count = _insert_tree(db, study_id, result["tree"])
 
     # 依赖落库:name → id 映射(树内唯一),成环边丢弃
