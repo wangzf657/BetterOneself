@@ -51,3 +51,23 @@ app.include_router(today.router)
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/api/dev/fake-today")
+def set_fake_today(payload: dict) -> dict:
+    """E2E 时间快进:改 fake_today 并重建配置。仅 stub 模式开放(误用防护)。"""
+    import os
+
+    from app.config import get_config
+
+    if not get_config().stub_llm:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=403, detail="仅测试模式可用")
+    date = payload.get("date")
+    if date:
+        os.environ["BO_FAKE_TODAY"] = str(date)
+    else:
+        os.environ.pop("BO_FAKE_TODAY", None)
+    get_config.cache_clear()
+    return {"fake_today": os.environ.get("BO_FAKE_TODAY")}

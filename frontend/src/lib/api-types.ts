@@ -285,6 +285,177 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/kps/{kp_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete Kp */
+    delete: operations['delete_kp_api_kps__kp_id__delete']
+    options?: never
+    head?: never
+    /** Update Kp */
+    patch: operations['update_kp_api_kps__kp_id__patch']
+    trace?: never
+  }
+  '/api/studies/{study_id}/kps': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Create Kp */
+    post: operations['create_kp_api_studies__study_id__kps_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/kps/{kp_id}/merge': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Merge Kp */
+    post: operations['merge_kp_api_kps__kp_id__merge_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/studies/{study_id}/kp-graph': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Graph */
+    get: operations['get_graph_api_studies__study_id__kp_graph_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/studies/{study_id}/plans': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Generate Plan */
+    post: operations['generate_plan_api_studies__study_id__plans_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/studies/{study_id}/plan': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Plan */
+    get: operations['get_plan_api_studies__study_id__plan_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/plans/{plan_id}/confirm': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Confirm Plan */
+    post: operations['confirm_plan_api_plans__plan_id__confirm_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/tasks/{task_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Move Task */
+    patch: operations['move_task_api_tasks__task_id__patch']
+    trace?: never
+  }
+  '/api/tasks/{task_id}/complete': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Complete Task */
+    post: operations['complete_task_api_tasks__task_id__complete_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/today': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Today */
+    get: operations['today_api_today_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/health': {
     parameters: {
       query?: never
@@ -405,6 +576,23 @@ export interface components {
       /** Detail */
       detail?: components['schemas']['ValidationError'][]
     }
+    /** KpCreate */
+    KpCreate: {
+      /** Name */
+      name: string
+      /**
+       * Summary
+       * @default
+       */
+      summary: string
+      /** Parent Id */
+      parent_id?: number | null
+    }
+    /** KpMerge */
+    KpMerge: {
+      /** Target Id */
+      target_id: number
+    }
     /** KpNode */
     KpNode: {
       /** Id */
@@ -441,6 +629,13 @@ export interface components {
       /** Heading Path */
       heading_path: string
     }
+    /** KpUpdate */
+    KpUpdate: {
+      /** Name */
+      name?: string | null
+      /** Summary */
+      summary?: string | null
+    }
     /** MessageOut */
     MessageOut: {
       /** Id */
@@ -451,6 +646,66 @@ export interface components {
       content: string
       /** Citations */
       citations: components['schemas']['Citation'][]
+    }
+    /** PlanDetail */
+    PlanDetail: {
+      /** Id */
+      id: number
+      /** Study Id */
+      study_id: number
+      /** Status */
+      status: string
+      /** Goal Depth */
+      goal_depth: string
+      /** Deadline */
+      deadline: string | null
+      /** Daily Minutes */
+      daily_minutes: number
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /** Tasks */
+      tasks: components['schemas']['TaskOut'][]
+      /** Events */
+      events: components['schemas']['PlanEventOut'][]
+      /** Warning */
+      warning: string | null
+    }
+    /** PlanEventOut */
+    PlanEventOut: {
+      /** Id */
+      id: number
+      /** Event Type */
+      event_type: string
+      /** Detail Json */
+      detail_json: string
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+    }
+    /** PlanGenerateIn */
+    PlanGenerateIn: {
+      /**
+       * Goal Depth
+       * @default
+       */
+      goal_depth: string
+      /** Deadline */
+      deadline?: string | null
+      /**
+       * Daily Minutes
+       * @default 45
+       */
+      daily_minutes: number
+      /**
+       * Skipped
+       * @default false
+       */
+      skipped: boolean
     }
     /** QuizOut */
     QuizOut: {
@@ -518,6 +773,23 @@ export interface components {
     RateIn: {
       /** Rating */
       rating: number
+    }
+    /** RescheduledItem */
+    RescheduledItem: {
+      /** Task Id */
+      task_id: number
+      /** Kp Id */
+      kp_id: number
+      /**
+       * From
+       * Format: date
+       */
+      from: string
+      /**
+       * To
+       * Format: date
+       */
+      to: string
     }
     /** SessionCreate */
     SessionCreate: {
@@ -689,6 +961,65 @@ export interface components {
       goal?: string | null
       /** Status */
       status?: ('active' | 'archived' | 'completed') | null
+    }
+    /** TaskMoveIn */
+    TaskMoveIn: {
+      /**
+       * Scheduled Date
+       * Format: date
+       */
+      scheduled_date: string
+    }
+    /** TaskOut */
+    TaskOut: {
+      /** Id */
+      id: number
+      /** Plan Id */
+      plan_id: number
+      /** Study Id */
+      study_id: number
+      /** Kp Id */
+      kp_id: number
+      /** Kp Name */
+      kp_name: string
+      /**
+       * Task Type
+       * @enum {string}
+       */
+      task_type: 'learn' | 'review_weak' | 'feynman' | 'quiz'
+      /**
+       * Scheduled Date
+       * Format: date
+       */
+      scheduled_date: string
+      /** Estimated Minutes */
+      estimated_minutes: number
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'pending' | 'done' | 'skipped'
+      /** Weak Evidence Id */
+      weak_evidence_id: string | null
+    }
+    /** TodayOut */
+    TodayOut: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string
+      /**
+       * Has Plan
+       * @default false
+       */
+      has_plan: boolean
+      /** Tasks */
+      tasks: components['schemas']['TaskOut'][]
+      /** Rescheduled */
+      rescheduled: components['schemas']['RescheduledItem'][]
+      /** Due Reviews */
+      due_reviews: number
     }
     /** ValidationError */
     ValidationError: {
@@ -1406,6 +1737,373 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['CardOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  delete_kp_api_kps__kp_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        kp_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_kp_api_kps__kp_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        kp_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['KpUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  create_kp_api_studies__study_id__kps_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        study_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['KpCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  merge_kp_api_kps__kp_id__merge_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        kp_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['KpMerge']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_graph_api_studies__study_id__kp_graph_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        study_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: unknown
+          }
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  generate_plan_api_studies__study_id__plans_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        study_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PlanGenerateIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PlanDetail']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_plan_api_studies__study_id__plan_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        study_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PlanDetail']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  confirm_plan_api_plans__plan_id__confirm_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        plan_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PlanDetail']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  move_task_api_tasks__task_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        task_id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TaskMoveIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TaskOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  complete_task_api_tasks__task_id__complete_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        task_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TaskOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  today_api_today_get: {
+    parameters: {
+      query?: {
+        study_id?: number | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TodayOut']
         }
       }
       /** @description Validation Error */

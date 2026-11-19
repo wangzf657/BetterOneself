@@ -71,6 +71,7 @@ class RescheduledItem(BaseModel):
 
 class TodayOut(BaseModel):
     date: date
+    has_plan: bool = False
     tasks: list[TaskOut]
     rescheduled: list[RescheduledItem]
     due_reviews: int

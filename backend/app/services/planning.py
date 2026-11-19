@@ -285,8 +285,12 @@ def today_view(db: Session, study_id: int | None = None) -> dict:
 
     from app.services import review as review_svc
 
+    plan_stmt = select(Plan.id).where(Plan.status.in_(["draft", "active"]))
+    if study_id is not None:
+        plan_stmt = plan_stmt.where(Plan.study_id == study_id)
     return {
         "date": today().isoformat(),
+        "has_plan": db.scalar(plan_stmt) is not None,
         "tasks": [
             {
                 "id": t.id,

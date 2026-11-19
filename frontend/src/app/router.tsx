@@ -8,6 +8,8 @@ import { SourceReadPage } from '@/features/sources/read'
 import { KnowledgePage } from '@/features/knowledge/page'
 import { LearnPage } from '@/features/learn/session'
 import { ReviewPage } from '@/features/review/page'
+import { InterviewPage } from '@/features/plan/interview'
+import { PlanPage } from '@/features/plan/page'
 
 export const router = createBrowserRouter([
   {
@@ -23,6 +25,8 @@ export const router = createBrowserRouter([
           { path: 'sources', element: <SourcesPage /> },
           { path: 'sources/:sid', element: <SourceReadPage /> },
           { path: 'knowledge', element: <KnowledgePage /> },
+          { path: 'plan', element: <PlanPage /> },
+          { path: 'plan/interview', element: <InterviewPage /> },
           { path: 'learn/:sessionId', element: <LearnPage /> },
         ],
       },
