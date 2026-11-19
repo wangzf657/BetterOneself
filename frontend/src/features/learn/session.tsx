@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookmarkPlus, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { BookmarkPlus, BookOpen, ChevronDown, ChevronRight, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { RichMessage } from '@/components/citation'
@@ -107,6 +107,10 @@ export function LearnPage() {
           )}
           <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
             <div className="mx-auto max-w-2xl space-y-4">
+              {/* 原文预习(V1.1 B7-02 简易版):先见原文与摘要,再提问 */}
+              {session.kp_id != null && (
+                <KpPreview studyId={session.study_id} kpId={session.kp_id} />
+              )}
               {session.messages.map((m) => (
                 <div
                   key={m.id}
@@ -135,8 +139,8 @@ export function LearnPage() {
                 </div>
               )}
               {session.messages.length === 0 && live === null && (
-                <div className="py-16 text-center text-sm text-muted-foreground">
-                  提个问题开始学习——讲解默认引导式,回答会带来源引用。
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  先看上方原文与摘要,不懂的直接问;准备好了点下方「考我一组」。
                 </div>
               )}
               {/* 内嵌测验(M3-04) */}
@@ -197,6 +201,88 @@ export function LearnPage() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+/** 原文预习面板(V1.1 B7-02 简易版):知识点的摘要与原文切片,先读后问 */
+function KpPreview({ studyId, kpId }: { studyId: number; kpId: number }) {
+  const [open, setOpen] = useState(true)
+  type Node = {
+    id: number
+    name: string
+    summary: string
+    refs: { chunk_id: number; source_id: number; heading_path: string }[]
+    children: Node[]
+  }
+  const { data: tree } = useQuery({
+    queryKey: ['knowledge', String(studyId)],
+    queryFn: () => api<Node[]>(`/api/studies/${studyId}/knowledge`),
+  })
+  const node = useMemo(() => {
+    const walk = (nodes: Node[]): Node | null => {
+      for (const n of nodes) {
+        if (n.id === kpId) return n
+        const hit = walk(n.children)
+        if (hit) return hit
+      }
+      return null
+    }
+    return tree ? walk(tree) : null
+  }, [tree, kpId])
+
+  const refs = useMemo(() => node?.refs ?? [], [node])
+  const sourceIds = useMemo(() => [...new Set(refs.map((r) => r.source_id))], [refs])
+  // shortcut: 复用整包源文接口,大资料拉取偏重;V1.1 B7-02 上轻量内容端点后替换
+  const sourceQueries = useQueries({
+    queries: sourceIds.map((sid) => ({
+      queryKey: ['source', sid],
+      queryFn: () => api<Schemas['SourceDetail']>(`/api/sources/${sid}`),
+    })),
+  })
+  const chunkById = new Map<number, Schemas['ChunkOut']>()
+  for (const q of sourceQueries) {
+    for (const c of q.data?.chunks ?? []) chunkById.set(c.id, c)
+  }
+
+  if (!node) return null
+  return (
+    <div className="rounded-lg border bg-muted/30" data-testid="kp-preview">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium"
+        onClick={() => setOpen(!open)}
+        aria-label="展开原文预习"
+      >
+        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <BookOpen size={14} />
+        原文预习 · {node.name}
+      </button>
+      {open && (
+        <div className="space-y-3 px-4 pb-3">
+          {node.summary && <p className="text-sm text-muted-foreground">{node.summary}</p>}
+          {refs.length === 0 && (
+            <p className="text-xs text-muted-foreground">该知识点暂无原文切片(AI 推断)。</p>
+          )}
+          {refs.map((r) => {
+            const chunk = chunkById.get(r.chunk_id)
+            return (
+              <section key={r.chunk_id} className="rounded-md border bg-card p-2">
+                <div className="mb-1 text-xs text-muted-foreground">
+                  {r.heading_path || `chunk ${r.chunk_id}`}
+                </div>
+                <div className="prose prose-xs dark:prose-invert max-w-none text-sm">
+                  {chunk ? (
+                    <Markdown remarkPlugins={[remarkGfm]}>{chunk.content}</Markdown>
+                  ) : (
+                    <Skeleton className="h-16 w-full" />
+                  )}
+                </div>
+              </section>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
