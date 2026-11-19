@@ -197,6 +197,18 @@ def study_source_ids(db: Session, study_id: int) -> Sequence[int]:
     ).fetchall()
 
 
+def has_ready_sources(db: Session, study_id: int) -> bool:
+    """是否存在已解析就绪的资料(决定能否只重跑拆解而不必重新解析)。"""
+    return (
+        db.scalar(
+            select(SourceChunk.source_id)
+            .where(SourceChunk.source_id.in_(study_source_ids(db, study_id)))
+            .limit(1)
+        )
+        is not None
+    )
+
+
 # ---------- 编辑(M2-03):改名/删除/新增/合并;计划与档案经外键与 join 同步生效 ----------
 
 

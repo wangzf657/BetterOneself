@@ -128,15 +128,15 @@ def test_record_usage_with_real_response(db):
 
 def test_decompose_status_done_after_import(client):
     study = client.post("/api/studies", json={"name": "Rust", "goal": "g"}).json()
-    assert client.get(f"/api/studies/{study['id']}/decompose-status").json() == {
-        "status": "idle",
-        "error": None,
-    }
+    before = client.get(f"/api/studies/{study['id']}/decompose-status").json()
+    assert before == {"status": "idle", "error": None, "can_decompose": False}
     client.post(
         f"/api/studies/{study['id']}/sources",
         files={"file": ("a.md", io.BytesIO("# A\n内容".encode()), "text/markdown")},
     )
-    assert client.get(f"/api/studies/{study['id']}/decompose-status").json()["status"] == "done"
+    after = client.get(f"/api/studies/{study['id']}/decompose-status").json()
+    assert after["status"] == "done"
+    assert after["can_decompose"] is True  # 有就绪资料:空树时可提供"重新拆解"入口
 
 
 def test_decompose_failure_marks_study_and_retry_works(client, monkeypatch):

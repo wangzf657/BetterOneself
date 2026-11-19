@@ -164,6 +164,13 @@ export function KnowledgePage() {
                 重试拆解
               </Button>
             </div>
+          ) : decompose?.can_decompose ? (
+            <div className="space-y-3">
+              <p>资料已解析,但还没有拆出知识点,可直接重新拆解(不必重新上传)。</p>
+              <Button size="sm" variant="outline" onClick={() => retryDecompose.mutate()}>
+                重新拆解
+              </Button>
+            </div>
           ) : (
             <>
               还没有知识点。先到

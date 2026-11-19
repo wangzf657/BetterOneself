@@ -20,11 +20,18 @@ def get_tree(study_id: int, db: Session = Depends(get_db)) -> list[dict]:
 
 @router.get("/studies/{study_id}/decompose-status")
 def decompose_status(study_id: int, db: Session = Depends(get_db)):
-    """拆解进度(M1-06):解析完成后拆解仍在后台跑,前端据此展示/轮询。"""
+    """拆解进度(M1-06):解析完成后拆解仍在后台跑,前端据此展示/轮询。
+
+    can_decompose:有已解析资料时为真,前端据此提供"重新拆解"入口。
+    """
     study = studies.get_study(db, study_id)
     if study is None:
         raise HTTPException(status_code=404, detail="study not found")
-    return {"status": study.decompose_status, "error": study.decompose_error}
+    return {
+        "status": study.decompose_status,
+        "error": study.decompose_error,
+        "can_decompose": knowledge.has_ready_sources(db, study_id),
+    }
 
 
 @router.post("/studies/{study_id}/decompose", status_code=202)
