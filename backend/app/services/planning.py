@@ -247,9 +247,39 @@ def reschedule_overdue(db: Session, study_id: int | None = None) -> list[dict]:
         return []
 
     before = {t.id: t.scheduled_date for t in overdue}
+    overdue_ids = {t.id for t in overdue}
+
+    # 逐计划 first-fit 装箱:只搬逾期任务,不动的未逾期任务占用的每日容量必须保留
+    # (M5-02 重排不堆积;此前全量 _refit 会把未逾期任务连同挪动,破坏次日针对性任务)
     for plan in {db.get(Plan, t.plan_id) for t in overdue}:
-        if plan is not None:
-            _refit(db, plan)
+        if plan is None:
+            continue
+        others = [
+            t
+            for t in db.scalars(
+                select(Task).where(
+                    Task.plan_id == plan.id,
+                    Task.status == "pending",
+                    Task.scheduled_date >= today(),
+                )
+            )
+            if t.id not in overdue_ids
+        ]
+        day_used: dict[date, int] = {}
+        for t in others:
+            day_used[t.scheduled_date] = day_used.get(t.scheduled_date, 0) + t.estimated_minutes
+        for t in sorted(overdue, key=lambda x: (x.scheduled_date, x.id)):
+            if t.plan_id != plan.id:
+                continue
+            day = today()
+            while (
+                day_used.get(day, 0) + t.estimated_minutes > plan.daily_minutes
+                and day_used.get(day, 0) > 0
+            ):
+                day += timedelta(days=1)
+            t.scheduled_date = day
+            day_used[day] = day_used.get(day, 0) + t.estimated_minutes
+
     moved = [
         {
             "task_id": t.id,
@@ -261,15 +291,16 @@ def reschedule_overdue(db: Session, study_id: int | None = None) -> list[dict]:
         if t.scheduled_date != before[t.id]
     ]
     if moved:
-        plan = db.get(Plan, overdue[0].plan_id)
-        if plan is not None:
-            db.add(
-                PlanEvent(
-                    plan_id=plan.id,
-                    event_type="rescheduled",
-                    detail_json=json.dumps({"tasks": moved}, ensure_ascii=False),
+        plans_moved = {db.get(Plan, t.plan_id) for t in overdue}
+        for plan in plans_moved:
+            if plan is not None:
+                db.add(
+                    PlanEvent(
+                        plan_id=plan.id,
+                        event_type="rescheduled",
+                        detail_json=json.dumps({"tasks": moved}, ensure_ascii=False),
+                    )
                 )
-            )
     db.commit()
     return moved
 

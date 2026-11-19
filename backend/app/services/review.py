@@ -102,14 +102,19 @@ def rate_card(db: Session, card: CardRow, rating: int) -> CardRow:
     card.difficulty = reviewed.difficulty
     card.state = reviewed.state.name if reviewed.state else None
     card.last_review_at = now
-    db.add(
-        ReviewLog(
-            card_id=card.id,
-            rating=rating,
-            scheduled_days=max((due - now).total_seconds() / 86400, 0),
-            elapsed_days=elapsed,
-        )
+    log = ReviewLog(
+        card_id=card.id,
+        rating=rating,
+        scheduled_days=max((due - now).total_seconds() / 86400, 0),
+        elapsed_days=elapsed,
     )
+    db.add(log)
     db.commit()
     db.refresh(card)
+    db.refresh(log)
+
+    # 复习"忘了"进入薄弱点证据流(M4-05)
+    from app.services import mastery
+
+    mastery.record_review_result(db, card.kp_id, log.id, rating)
     return card

@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+/** 本地日期(后端 today() 用本地时钟;toISOString 是 UTC,跨时区会算错一天) */
+function localDate(offsetDays: number): string {
+  const d = new Date(Date.now() + offsetDays * 86400_000)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // M3 主链路:访谈 → 计划确认 → 今日任务完成 → 时间快进 → 逾期重排可见
 test('M3 能规划主链路', async ({ page }) => {
   const name = `M3-${Date.now()}`
@@ -39,13 +45,15 @@ test('M3 能规划主链路', async ({ page }) => {
 
   // 回今日页,标记完成
   await page.goto('/')
-  await page.locator('[data-testid^="today-task-"]').first().getByRole('button', { name: '完成' }).click()
+  await page
+    .locator('[data-testid^="today-task-"]')
+    .first()
+    .getByRole('button', { name: '完成' })
+    .click()
   await expect(page.locator('[data-testid^="today-task-"]')).toHaveCount(0)
 
   // 时间快进 5 天 → 逾期重排横幅(M5-02)+ 任务排进未来
-  await page.request.post('/api/dev/fake-today', {
-    data: { date: new Date(Date.now() + 5 * 86400_000).toISOString().slice(0, 10) },
-  })
+  await page.request.post('/api/dev/fake-today', { data: { date: localDate(5) } })
   await page.goto('/')
   await expect(page.getByTestId('reschedule-banner')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText(/已重排/)).toBeVisible()

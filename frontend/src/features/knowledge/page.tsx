@@ -234,6 +234,16 @@ function KpRow({
           )}
         </button>
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{node.name}</span>
+        {node.mastery_status === 'weak' && (
+          <Badge variant="destructive" className="text-[10px]">
+            薄弱
+          </Badge>
+        )}
+        {node.mastery_status === 'passed' && (
+          <Badge variant="default" className="text-[10px]">
+            已通过
+          </Badge>
+        )}
         {node.ai_inferred && (
           <Badge variant="outline" className="text-[10px]">
             AI 推断
