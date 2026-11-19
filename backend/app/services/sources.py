@@ -225,6 +225,8 @@ def _replace_chunks(db: Session, source: Source, content_md: str) -> None:
     vecstore.clear_source(conn, source.id)
     db.execute(delete(SourceChunk).where(SourceChunk.source_id == source.id))
     db.flush()
+    # 旧切片已删、新切片未插:清掉无主向量,自愈脏状态(否则新切片复用 id 撞 vec 主键)
+    vecstore.clear_orphans(conn)
 
     rows = [
         SourceChunk(

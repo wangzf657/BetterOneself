@@ -72,3 +72,26 @@ def test_reparse_replaces_chunks(client):
     assert detail["parse_status"] == "ready"
     detail = client.get(f"/api/sources/{source['id']}").json()
     assert detail["chunks"][0]["content"].startswith("# 新")
+
+
+def test_reparse_self_heals_stale_vectors(client):
+    """回归(M1-02):切片空+同 id 向量残留的脏稳态曾让重解析永远撞 vec 主键。"""
+    from sqlalchemy import text
+
+    study = client.post("/api/studies", json={"name": "Rust", "goal": "g"}).json()
+    source = _upload(client, study["id"], "a.md", "# 旧\n旧内容").json()
+
+    # 构造脏稳态:删光切片、保留同 id 向量(进程被硬杀可造成)
+    with Session(get_engine()) as db:
+        db.execute(text("DELETE FROM source_chunks"))
+        db.commit()
+
+    client.post(f"/api/sources/{source['id']}/reparse")
+    detail = client.get(f"/api/sources/{source['id']}").json()
+    assert detail["parse_status"] == "ready", detail["parse_error"]
+    assert len(detail["chunks"]) == 1
+
+    with Session(get_engine()) as db:
+        n_vec = db.execute(text("select count(*) from vec_chunks")).scalar()
+        n_chunk = db.execute(text("select count(*) from source_chunks")).scalar()
+        assert n_vec == n_chunk == 1, "向量与切片应一一对应,无残留"

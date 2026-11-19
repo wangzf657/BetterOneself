@@ -26,6 +26,14 @@ def clear_source(conn: Connection, source_id: int) -> None:
     )
 
 
+def clear_orphans(conn: Connection) -> None:
+    """清理无主向量(其 chunk 已不存在):进程被杀等留下的脏状态会让
+    新切片复用 id 后撞 vec 主键;调用时机=旧切片已删、新切片未插。"""
+    conn.execute(
+        text("DELETE FROM vec_chunks WHERE chunk_id NOT IN (SELECT id FROM source_chunks)")
+    )
+
+
 _SEARCH_SQL = text(
     """
     SELECT vc.chunk_id, vc.distance
