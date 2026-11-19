@@ -165,6 +165,15 @@ def test_decompose_failure_marks_study_and_retry_works(client, monkeypatch):
     assert tree, "重试后应拆出知识点"
 
 
+def test_decompose_retry_without_sources_marks_failed(client):
+    """无可拆资料时重试不得把状态永远留在 running。"""
+    study = client.post("/api/studies", json={"name": "Rust", "goal": "g"}).json()
+    assert client.post(f"/api/studies/{study['id']}/decompose").status_code == 202
+    status = client.get(f"/api/studies/{study['id']}/decompose-status").json()
+    assert status["status"] == "failed"
+    assert "没有已解析的资料" in status["error"]
+
+
 def test_stub_extracts_kp_from_fenced_chunk():
     """stub 对含代码围栏的切片仍能解析出知识点(raw_decode 不被内部 ``` 截断)。"""
     from app.agents import prompts, stubs

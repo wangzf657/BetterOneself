@@ -104,7 +104,11 @@ export function SourcesPage() {
   const reparse = useMutation({
     mutationFn: (sid: number) =>
       api<Schemas['SourceOut']>(`/api/sources/${sid}/reparse`, { method: 'POST' }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      toast.success('已开始重新解析,完成后自动拆解')
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message),
   })
 
   const rename = useMutation({
@@ -214,9 +218,9 @@ export function SourcesPage() {
                   <Trash2 size={13} />
                 </Button>
               </span>
-              {s.parse_status === 'failed' && (
+              {(s.parse_status === 'ready' || s.parse_status === 'failed') && (
                 <Button size="sm" variant="outline" onClick={() => reparse.mutate(s.id)}>
-                  重试
+                  {s.parse_status === 'failed' ? '重试' : '重新解析'}
                 </Button>
               )}
             </CardContent>

@@ -111,12 +111,19 @@ def run_decompose(study_id: int) -> None:
     from app.services import knowledge
 
     with Session(get_engine()) as db:
+        study = db.get(Study, study_id)
+        if study is None:
+            return
         source_ids = db.scalars(
             select(Source.id)
             .join(StudySource, StudySource.source_id == Source.id)
             .where(StudySource.study_id == study_id, Source.parse_status == "ready")
         ).fetchall()
-        if not source_ids or db.get(Study, study_id) is None:
+        if not source_ids:
+            # 无可拆资料:落 failed,避免状态永远停在 running
+            study.decompose_status = "failed"
+            study.decompose_error = "没有已解析的资料可拆解"
+            db.commit()
             return
         try:
             for source_id in source_ids:
