@@ -30,6 +30,19 @@ def get_study(study_id: int, db: Session = Depends(get_db)) -> StudyOut:
     return StudyOut.model_validate(study)
 
 
+@router.get("/{study_id}/progress")
+def import_progress(study_id: int, db: Session = Depends(get_db)):
+    """导入/拆解实时进度(M1-06):解析/向量化/拆解的批次计数,无活动任务时为空列表。"""
+    if studies.get_study(db, study_id) is None:
+        raise HTTPException(status_code=404, detail="study not found")
+    from app.services import progress as progress_svc
+    from app.services import sources as sources_svc
+
+    source_ids = sources_svc.list_study_sources(db, study_id)
+    keys = [f"parse:{s.id}" for s in source_ids] + [f"decompose:{study_id}"]
+    return {"items": progress_svc.get(keys)}
+
+
 @router.patch("/{study_id}", response_model=StudyOut)
 def update_study(study_id: int, data: StudyUpdate, db: Session = Depends(get_db)) -> StudyOut:
     study = studies.get_study(db, study_id)

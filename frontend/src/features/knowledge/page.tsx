@@ -29,6 +29,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { api, type Schemas } from '@/lib/api'
+import { ProgressLine } from '@/components/progress-line'
 
 type KpNode = Schemas['KpNode']
 
@@ -51,12 +52,24 @@ export function KnowledgePage() {
   const { data: decompose } = useQuery({
     queryKey: ['decompose-status', studyId],
     queryFn: () =>
-      api<{ status: string; error: string | null }>(
+      api<{ status: string; error: string | null; can_decompose: boolean }>(
         `/api/studies/${studyId}/decompose-status`,
       ),
     enabled: tree?.length === 0,
     refetchInterval: (q) => (q.state.data?.status === 'running' ? 3000 : false),
   })
+  // 拆解批次进度(M1-06)
+  const { data: progressData } = useQuery({
+    queryKey: ['decompose-progress', studyId],
+    queryFn: () =>
+      api<{ items: { key: string; stage: string; current: number; total: number | null }[] }>(
+        `/api/studies/${studyId}/progress`,
+      ),
+    enabled: tree?.length === 0,
+    refetchInterval: (q) =>
+      q.state.data?.items.length || decompose?.status === 'running' ? 2000 : false,
+  })
+  const decomposeProgress = progressData?.items.find((p) => p.key === `decompose:${studyId}`)
   const { data: graph } = useQuery({
     queryKey: ['kp-graph', studyId],
     queryFn: () =>
@@ -156,7 +169,18 @@ export function KnowledgePage() {
       {tree?.length === 0 && (
         <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
           {decompose?.status === 'running' ? (
-            <>正在拆解知识点…大资料可能需要几十分钟,可先离开,稍后回来查看。</>
+            decomposeProgress ? (
+              <div className="flex flex-col items-center gap-2">
+                <span>正在拆解知识点…大资料可能需要几十分钟,可先离开,稍后回来查看。</span>
+                <ProgressLine
+                  stage={decomposeProgress.stage}
+                  current={decomposeProgress.current}
+                  total={decomposeProgress.total}
+                />
+              </div>
+            ) : (
+              <>正在拆解知识点…大资料可能需要几十分钟,可先离开,稍后回来查看。</>
+            )
           ) : decompose?.status === 'failed' ? (
             <div className="space-y-3">
               <p>拆解失败:{decompose.error ?? '未知原因'}</p>

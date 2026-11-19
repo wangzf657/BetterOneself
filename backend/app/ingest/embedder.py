@@ -6,13 +6,14 @@
 import hashlib
 import struct
 import time
+from collections.abc import Callable
 
 from openai import OpenAI
 
 from app.config import get_config
 
 EMBED_DIM = 1024
-_BATCH = 16
+BATCH_SIZE = 16
 _RETRIES = 3
 
 
@@ -33,17 +34,21 @@ def _resolve() -> tuple[bool, OpenAI | None, str]:
     return stub, client, resolved["model"]
 
 
-def embed_texts(texts: list[str], stub: bool | None = None) -> list[bytes]:
-    """返回 sqlite-vec 可直接写入的 float32 序列化 bytes。"""
+def embed_texts(
+    texts: list[str], stub: bool | None = None, on_batch: Callable[[int, int], None] | None = None
+) -> list[bytes]:
+    """返回 sqlite-vec 可直接写入的 float32 序列化 bytes;on_batch(完成批数, 总批数)报进度。"""
     cfg_stub, client, model = _resolve()
     if stub is None:
         stub = cfg_stub
     if stub or client is None:
+        if on_batch:
+            on_batch(1, 1)
         return [_stub_vector(t) for t in texts]
 
+    batches = [texts[start : start + BATCH_SIZE] for start in range(0, len(texts), BATCH_SIZE)]
     vectors: list[bytes] = []
-    for start in range(0, len(texts), _BATCH):
-        batch = texts[start : start + _BATCH]
+    for done, batch in enumerate(batches, start=1):
         last_err: Exception | None = None
         for attempt in range(_RETRIES):
             try:
@@ -60,6 +65,8 @@ def embed_texts(texts: list[str], stub: bool | None = None) -> list[bytes]:
                 time.sleep(2**attempt)
         if last_err is not None:
             raise last_err
+        if on_batch:
+            on_batch(done, len(batches))
     return vectors
 
 

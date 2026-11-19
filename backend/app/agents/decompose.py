@@ -8,7 +8,8 @@
 依赖以 name 对输出(树内 name 全局唯一),service 落库时映射 id 并做环检测。
 """
 
-from typing import Any, Literal, TypedDict
+from collections.abc import Callable
+from typing import Any, Literal, NotRequired, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
@@ -44,21 +45,25 @@ class DecomposeState(TypedDict, total=False):
     tree: list[dict]
     dependencies: list[dict]
     errors: list[str]
+    on_batch: NotRequired[Callable[[int, int], None]]  # 抽取进度回调(完成批数, 总批数)
 
 
 def extract_node(state: DecomposeState) -> dict[str, Any]:
     extracted: list[dict] = []
     errors: list[str] = []
     chunks = state["chunks"]
-    for i in range(0, len(chunks), BATCH_SIZE):
-        batch = chunks[i : i + BATCH_SIZE]
+    on_batch = state.get("on_batch")
+    batches = [chunks[i : i + BATCH_SIZE] for i in range(0, len(chunks), BATCH_SIZE)]
+    for done, batch in enumerate(batches, start=1):
         try:
             parsed = llm.parse_json(
                 prompts.decompose_messages(batch), ExtractOut, scene="decompose"
             )
             extracted.extend(kp.model_dump() for kp in parsed.kps)
         except Exception as err:  # noqa: BLE001 单批失败不拖垮整体
-            errors.append(f"batch@{i}: {err}")
+            errors.append(f"batch@{done - 1}: {err}")
+        if on_batch:
+            on_batch(done, len(batches))
     return {"extracted": extracted, "errors": errors}
 
 
@@ -190,8 +195,13 @@ def build_graph():
 _graph = None
 
 
-def run_pipeline(chunks: list[dict]) -> dict:
+def run_pipeline(
+    chunks: list[dict], on_batch: Callable[[int, int], None] | None = None
+) -> dict:
     global _graph
     if _graph is None:
         _graph = build_graph()
-    return _graph.invoke({"chunks": chunks})
+    state: DecomposeState = {"chunks": chunks}
+    if on_batch is not None:
+        state["on_batch"] = on_batch
+    return _graph.invoke(state)

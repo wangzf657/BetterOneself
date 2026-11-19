@@ -1,6 +1,6 @@
 """知识点模块(M2-01/02/03):拆解落库(含依赖)、树查询、编辑操作。"""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
@@ -20,7 +20,12 @@ from app.models import (
 )
 
 
-def decompose_source(db: Session, study_id: int, source_id: int) -> int:
+def decompose_source(
+    db: Session,
+    study_id: int,
+    source_id: int,
+    on_batch: Callable[[int, int], None] | None = None,
+) -> int:
     """对该 study 拆解该 source 并落库(旧结果已在切片替换前清理),返回写入节点数。"""
     chunks = db.scalars(
         select(SourceChunk)
@@ -38,7 +43,8 @@ def decompose_source(db: Session, study_id: int, source_id: int) -> int:
                 "content": c.content,
             }
             for c in chunks
-        ]
+        ],
+        on_batch=on_batch,
     )
     if not result["tree"] and result.get("errors"):
         # 批次错误在 extract_node 已收集;全空说明拆解没产出,必须外露而非静默成功(M2-01)

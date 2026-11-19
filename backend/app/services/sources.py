@@ -3,6 +3,7 @@
 import json
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import BackgroundTasks
@@ -92,6 +93,13 @@ def schedule_parse(tasks: BackgroundTasks, source_id: int) -> None:
     tasks.add_task(run_parse, source_id)
 
 
+def _decompose_progress(key: str) -> Callable[[int, int], None]:
+    """绑定进度 key 的拆解批次回调(避免循环变量捕获)。"""
+    from app.services import progress
+
+    return lambda done, total: progress.set(key, "decomposing", done, total)
+
+
 def retry_decompose(db: Session, tasks: BackgroundTasks, study_id: int) -> None:
     """拆解重试入口(M1-06):先同步置 running,再后台重跑,前端立即可见状态。"""
     from app.models import Study
@@ -108,8 +116,9 @@ def retry_decompose(db: Session, tasks: BackgroundTasks, study_id: int) -> None:
 def run_decompose(study_id: int) -> None:
     """后台拆解:对该 study 全部 ready 资料重跑;先清本资料旧知识点保证幂等。"""
     from app.models import Source, Study, StudySource
-    from app.services import knowledge
+    from app.services import knowledge, progress
 
+    decompose_key = f"decompose:{study_id}"
     with Session(get_engine()) as db:
         study = db.get(Study, study_id)
         if study is None:
@@ -126,10 +135,14 @@ def run_decompose(study_id: int) -> None:
             db.commit()
             return
         try:
+            progress.set(decompose_key, "decomposing")
             for source_id in source_ids:
                 knowledge.delete_source_kps(db, [study_id], source_id)
                 db.flush()
-                knowledge.decompose_source(db, study_id, source_id)
+                knowledge.decompose_source(
+                    db, study_id, source_id,
+                    on_batch=_decompose_progress(decompose_key),
+                )
                 db.commit()
             study = db.get(Study, study_id)
             if study is None:
@@ -146,10 +159,15 @@ def run_decompose(study_id: int) -> None:
             study.decompose_error = str(exc)[:500]
             db.commit()
             print(f"[decompose] study={study_id} 拆解失败: {exc}", file=sys.stderr)
+        finally:
+            progress.clear(decompose_key)
 
 
 def run_parse(source_id: int) -> None:
     """后台解析入口:独立会话,状态机 pending/processing→ready/failed 落库(M1-06)。"""
+    from app.services import progress
+
+    parse_key = f"parse:{source_id}"
     with Session(get_engine()) as db:
         source = db.get(Source, source_id)
         if source is None:
@@ -158,6 +176,7 @@ def run_parse(source_id: int) -> None:
         source.parse_error = None
         db.commit()
         try:
+            progress.set(parse_key, "parsing")  # 文档解析本身无细分进度
             if source.raw_path is not None:
                 parsed = parsers.parse_file(Path(source.raw_path))
                 content_md = parsed.content_md
@@ -165,7 +184,7 @@ def run_parse(source_id: int) -> None:
                 content_md = source.content_md
             else:
                 return
-            _replace_chunks(db, source, content_md)
+            _replace_chunks(db, source, content_md, parse_key)
             source.content_md = content_md
             source.parse_status = "ready"
             db.commit()
@@ -178,6 +197,8 @@ def run_parse(source_id: int) -> None:
             source.parse_error = str(err)[:500]
             db.commit()
             return
+        finally:
+            progress.clear(parse_key)
 
         # 导入完成即拆解(M2-01):每个关联 study 各拆一份;失败落 study 状态可重试(M1-06)
         from app.models import Study
@@ -190,11 +211,16 @@ def run_parse(source_id: int) -> None:
             study = db.get(Study, study_id)
             if study is None:
                 continue
+            decompose_key = f"decompose:{study_id}"
             study.decompose_status = "running"
             study.decompose_error = None
             db.commit()
             try:
-                knowledge.decompose_source(db, study_id, source.id)
+                progress.set(decompose_key, "decomposing")
+                knowledge.decompose_source(
+                    db, study_id, source.id,
+                    on_batch=_decompose_progress(decompose_key),
+                )
                 study.decompose_status = "done"
                 db.commit()
             except Exception as exc:  # noqa: BLE001 失败必须可见,不许静默(M2-01)
@@ -207,10 +233,12 @@ def run_parse(source_id: int) -> None:
                 study.decompose_error = str(exc)[:500]
                 db.commit()
                 print(f"[decompose] study={study_id} 拆解失败: {exc}", file=sys.stderr)
+            finally:
+                progress.clear(decompose_key)
 
 
-def _replace_chunks(db: Session, source: Source, content_md: str) -> None:
-    from app.services import knowledge
+def _replace_chunks(db: Session, source: Source, content_md: str, parse_key: str) -> None:
+    from app.services import knowledge, progress
 
     # 先清旧知识点再删切片:切片删除会级联清引用,之后无法凭引用识别旧知识点
     knowledge.delete_source_kps(
@@ -228,6 +256,7 @@ def _replace_chunks(db: Session, source: Source, content_md: str) -> None:
     # 旧切片已删、新切片未插:清掉无主向量,自愈脏状态(否则新切片复用 id 撞 vec 主键)
     vecstore.clear_orphans(conn)
 
+    pieces = list(chunker.chunk_markdown(content_md))
     rows = [
         SourceChunk(
             source_id=source.id,
@@ -239,12 +268,17 @@ def _replace_chunks(db: Session, source: Source, content_md: str) -> None:
                 ensure_ascii=False,
             ),
         )
-        for seq, piece in enumerate(chunker.chunk_markdown(content_md))
+        for seq, piece in enumerate(pieces)
     ]
     db.add_all(rows)
     db.flush()
 
-    vectors = embedder.embed_texts([r.content for r in rows])
+    total_batches = max(1, -(-len(pieces) // embedder.BATCH_SIZE))
+    progress.set(parse_key, "embedding", 0, total_batches)
+    vectors = embedder.embed_texts(
+        [r.content for r in rows],
+        on_batch=lambda done, total: progress.set(parse_key, "embedding", done, total),
+    )
     vecstore.index_chunks(conn, [(r.id, v) for r, v in zip(rows, vectors, strict=True)])
 
 

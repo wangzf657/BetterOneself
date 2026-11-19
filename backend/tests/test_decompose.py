@@ -147,7 +147,7 @@ def test_decompose_failure_marks_study_and_retry_works(client, monkeypatch):
     monkeypatch.setattr(
         decompose_mod,
         "run_pipeline",
-        lambda chunks: {"tree": [], "errors": ["batch@0: 模型不可用"]},
+        lambda chunks, on_batch=None: {"tree": [], "errors": ["batch@0: 模型不可用"]},
     )
     client.post(
         f"/api/studies/{study['id']}/sources",

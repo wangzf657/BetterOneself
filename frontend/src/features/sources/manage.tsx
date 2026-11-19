@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { api, type Schemas } from '@/lib/api'
+import { ProgressLine } from '@/components/progress-line'
 
 const TYPE_LABEL: Record<string, string> = {
   pdf: 'PDF',
@@ -58,6 +59,20 @@ export function SourcesPage() {
     queryFn: () => api<Schemas['SourceOut'][]>(`/api/studies/${studyId}/sources`),
     refetchInterval: (q) =>
       q.state.data?.some((s) => s.parse_status === 'pending' || s.parse_status === 'processing')
+        ? 2000
+        : false,
+  })
+
+  // 解析/向量化实时进度(M1-06):有后台任务时每 2s 拉一次
+  const { data: progressData } = useQuery({
+    queryKey: ['import-progress', studyId],
+    queryFn: () =>
+      api<{ items: { key: string; stage: string; current: number; total: number | null }[] }>(
+        `/api/studies/${studyId}/progress`,
+      ),
+    refetchInterval: (q) =>
+      q.state.data?.items.length ||
+      sources?.some((s) => s.parse_status === 'pending' || s.parse_status === 'processing')
         ? 2000
         : false,
   })
@@ -185,7 +200,8 @@ export function SourcesPage() {
 
       <div className="space-y-3">
         {(sources ?? []).map((s) => (
-          <Card key={s.id}>
+          <Fragment key={s.id}>
+          <Card>
             <CardContent className="flex items-center gap-3 py-4">
               <Badge variant="outline">{TYPE_LABEL[s.type] ?? s.type}</Badge>
               <Link
@@ -228,6 +244,15 @@ export function SourcesPage() {
               <CardContent className="pt-0 text-xs text-destructive">{s.parse_error}</CardContent>
             )}
           </Card>
+          {(s.parse_status === 'pending' || s.parse_status === 'processing') &&
+            progressData?.items
+              .filter((p) => p.key === `parse:${s.id}`)
+              .map((p) => (
+                <CardContent key={p.key} className="pt-0">
+                  <ProgressLine stage={p.stage} current={p.current} total={p.total} />
+                </CardContent>
+              ))}
+          </Fragment>
         ))}
         {sources?.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">

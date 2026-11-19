@@ -95,3 +95,27 @@ def test_reparse_self_heals_stale_vectors(client):
         n_vec = db.execute(text("select count(*) from vec_chunks")).scalar()
         n_chunk = db.execute(text("select count(*) from source_chunks")).scalar()
         assert n_vec == n_chunk == 1, "向量与切片应一一对应,无残留"
+
+
+def test_progress_endpoint_and_batch_callbacks(client):
+    """M1-06:进度端点返回活动任务批次计数;任务结束清空;stub 回调一次 (1,1)。"""
+    from app.agents import decompose
+    from app.ingest import embedder
+
+    study = client.post("/api/studies", json={"name": "Rust", "goal": "g"}).json()
+    assert client.get(f"/api/studies/{study['id']}/progress").json() == {"items": []}
+
+    seen: list[tuple[int, int]] = []
+    embedder.embed_texts(["a", "b"], stub=True, on_batch=lambda d, t: seen.append((d, t)))
+    decompose.run_pipeline(
+        [{"chunk_id": 1, "heading_path": "h", "content": "c"}],
+        on_batch=lambda d, t: seen.append((d, t)),
+    )
+    assert seen == [(1, 1), (1, 1)]
+
+    client.post(
+        f"/api/studies/{study['id']}/sources",
+        files={"file": ("a.md", io.BytesIO("# A\n内容".encode()), "text/markdown")},
+    )
+    # TestClient 同步跑完后台任务:进度条目应已清空,不残留
+    assert client.get(f"/api/studies/{study['id']}/progress").json() == {"items": []}
