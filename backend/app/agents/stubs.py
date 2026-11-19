@@ -14,6 +14,8 @@ def stub_chat(messages: list[dict]) -> str:
     text = "\n".join(str(m.get("content", "")) for m in messages)
     if "__TASK__KNOWLEDGE_EXTRACT__" in text:
         return _knowledge_extract(text)
+    if "__TASK__FEYNMAN__" in text:
+        return _feynman(text)
     if "__TASK__LECTURE__" in text:
         return _lecture(text)
     if "__TASK__QUIZ_GEN__" in text:
@@ -63,6 +65,19 @@ def _lecture(text: str) -> str:
     first = chunks[0]
     body = _HEADING.sub("", first.get("content", "")).strip()
     return f"{first.get('heading_path', '本节')} 的要点:{body[:120]}。以上内容来自资料 [1]。"
+
+
+def _feynman(text: str) -> str:
+    chunks = _load_chunks(text)
+    first = chunks[0] if chunks else {"chunk_id": 0, "heading_path": ""}
+    m = re.search(r"学习者对知识点的解释:(.*)", text, re.DOTALL)
+    answer = (m.group(1).strip() if m else "")[:200]
+    correct = len(answer) >= 15  # 确定性:有实质内容视为基本正确
+    verdict = "解释正确" if correct else "解释里有几处偏差"
+    return (
+        f"{verdict}。{('你抓住了核心。' if correct else '建议对照资料再核对表述。')}"
+        f"追问:你能说说「{first.get('heading_path') or '这个知识点'}」在实际代码里会怎么体现吗?[1]"
+    )
 
 
 def _quiz_gen(text: str) -> str:

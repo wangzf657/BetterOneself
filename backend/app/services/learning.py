@@ -79,7 +79,7 @@ def chat_stream(session_id: int, content: str) -> Iterator[dict]:
 
         parts: list[str] = []
         for piece in lecture.stream_lecture(
-            chunks, history, content, session.socratic_mode
+            chunks, history, content, session.socratic_mode, session.session_type
         ):
             parts.append(piece)
             yield {"event": "delta", "data": {"text": piece}}

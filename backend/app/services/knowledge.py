@@ -345,14 +345,19 @@ def get_graph(db: Session, study_id: int) -> dict:
 def load_leaves_with_deps(
     db: Session, study_id: int
 ) -> tuple[list[KnowledgePoint], list[tuple[int, int]]]:
-    """计划排程输入:叶子知识点 + 依赖边(仅保留两端都是叶子的边)。"""
+    """计划排程输入:叶子知识点 + 依赖边(仅保留两端都是叶子的边)。
+
+    自评"已掌握"的叶子不进计划(M2-07);快速验证不通过会回滚 self_reported 后重新生成。
+    """
     kps = db.scalars(
         select(KnowledgePoint)
         .where(KnowledgePoint.study_id == study_id)
         .order_by(KnowledgePoint.sort_order, KnowledgePoint.id)
     ).fetchall()
     parent_ids = {kp.parent_id for kp in kps if kp.parent_id is not None}
-    leaves = [kp for kp in kps if kp.id not in parent_ids]
+    leaves = [
+        kp for kp in kps if kp.id not in parent_ids and kp.self_reported != "mastered"
+    ]
     leaf_ids = {kp.id for kp in leaves}
     edges = [
         (kp_id, dep_id)
@@ -364,3 +369,66 @@ def load_leaves_with_deps(
         ).all()
     ]
     return leaves, edges
+
+
+# ---------- 自评跳过(M2-07, 与 M6-03 自评分离共用字段) ----------
+
+
+def set_self_reported(db: Session, kp: KnowledgePoint, mastered: bool) -> KnowledgePoint:
+    kp.self_reported = "mastered" if mastered else "unknown"
+    db.commit()
+    db.refresh(kp)
+    return kp
+
+
+def quick_quiz(db: Session, kp: KnowledgePoint) -> Quiz:
+    """快速验证(M2-07):出 1 道客观题验证自评;不通过则回滚进计划。"""
+    import uuid
+
+    from app.services import quiz as quiz_svc
+
+    session = LearningSession(
+        study_id=kp.study_id, kp_id=kp.id, session_type="free", thread_id=uuid.uuid4().hex
+    )
+    db.add(session)
+    db.flush()
+    rows = quiz_svc.generate_for_session(db, session)
+    keep = next((q for q in rows if q.q_type == "objective"), rows[0])
+    for q in rows:
+        if q.id != keep.id:
+            db.delete(q)
+    db.commit()
+    db.refresh(keep)
+    return keep
+
+
+def rollback_self_report(db: Session, kp: KnowledgePoint) -> None:
+    """快速验证不通过:回滚自评并补进当前 active 计划(明天)。"""
+    from datetime import timedelta
+
+    from app.config import today
+    from app.models import Plan
+
+    kp.self_reported = "unknown"
+    plan = db.scalar(
+        select(Plan).where(Plan.study_id == kp.study_id, Plan.status == "active")
+    )
+    if plan is not None and not db.scalar(
+        select(Task.id).where(
+            Task.plan_id == plan.id,
+            Task.kp_id == kp.id,
+            Task.task_type == "learn",
+            Task.status == "pending",
+        )
+    ):
+        db.add(
+            Task(
+                plan_id=plan.id,
+                study_id=kp.study_id,
+                kp_id=kp.id,
+                task_type="learn",
+                scheduled_date=today() + timedelta(days=1),
+                estimated_minutes=25,
+            )
+        )
+    db.commit()

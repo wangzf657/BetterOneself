@@ -1,8 +1,11 @@
-"""复习与卡片路由(M3-05, M4-01/02/03)。"""
+"""复习与卡片路由(M3-05, M4-01/02/03/04/06)。"""
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -76,3 +79,57 @@ def rate(card_id: int, data: RateIn, db: Session = Depends(get_db)) -> CardOut:
     item = CardOut.model_validate(rated)
     item.source_id = smap_single(db, rated.chunk_id)
     return item
+
+
+class CardUpdate(BaseModel):
+    front: str | None = Field(default=None, min_length=1, max_length=2000)
+    back_md: str | None = Field(default=None, max_length=4000)
+    status: Literal["active", "suspended"] | None = None
+
+
+@router.patch("/cards/{card_id}", response_model=CardOut)
+def update_card(card_id: int, data: CardUpdate, db: Session = Depends(get_db)) -> CardOut:
+    """编辑/暂停卡片(M4-04):只改卡片本身,历史复习记录不动。"""
+    card = db.get(Card, card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="card not found")
+    for field in ("front", "back_md", "status"):
+        value = getattr(data, field)
+        if value is not None:
+            setattr(card, field, value)
+    db.commit()
+    db.refresh(card)
+    item = CardOut.model_validate(card)
+    item.source_id = smap_single(db, card.chunk_id)
+    return item
+
+
+@router.delete("/cards/{card_id}", status_code=204)
+def delete_card(card_id: int, db: Session = Depends(get_db)) -> None:
+    card = db.get(Card, card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="card not found")
+    db.delete(card)  # review_logs 由 CASCADE 清理;删除是显式操作,提示走前端确认
+    db.commit()
+
+
+@router.get("/studies/{study_id}/cards/export.tsv")
+def export_anki(study_id: int, db: Session = Depends(get_db)) -> StreamingResponse:
+    """Anki 导出(M4-06):TSV(正面<TAB>背面),Anki 文本导入可直接使用;不删本地卡片。"""
+    rows = db.scalars(
+        select(Card).where(Card.study_id == study_id, Card.status == "active").order_by(Card.id)
+    ).fetchall()
+    lines = ["#separator:tab", "#html:false", "front\tback"]
+    for c in rows:
+        front = c.front.replace("\t", " ").replace("\n", " ")
+        back = c.back_md.replace("\t", " ").replace("\n", "<br>")
+        lines.append(f"{front}\t{back}")
+
+    def iter_bytes() -> Iterator[bytes]:
+        yield ("\n".join(lines) + "\n").encode("utf-8")
+
+    return StreamingResponse(
+        iter_bytes(),
+        media_type="text/tab-separated-values; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=cards-{study_id}-anki.tsv"},
+    )

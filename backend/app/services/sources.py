@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import get_config
 from app.db import get_engine
 from app.ingest import chunker, embedder, parsers, vecstore
-from app.models import Source, SourceChunk, StudySource
+from app.models import KnowledgePoint, KnowledgeRef, Source, SourceChunk, StudySource
 from app.schemas.source import ChunkOut, SourceDetail
 
 ALLOWED_SUFFIXES = {".pdf": "pdf", ".md": "md", ".markdown": "md"}
@@ -42,6 +42,51 @@ def save_upload(db: Session, study_id: int, filename: str, data: bytes) -> Sourc
     return source
 
 
+def save_text(db: Session, study_id: int, title: str, content: str) -> Source:
+    """纯文本粘贴建为资料(M1-07):无 raw_path,内容直接落 content_md。"""
+    source = Source(title=title[:300], type="text", origin="粘贴文本",
+                    content_md=content, parse_status="pending")
+    db.add(source)
+    db.flush()
+    db.add(StudySource(study_id=study_id, source_id=source.id))
+    db.commit()
+    db.refresh(source)
+    return source
+
+
+def delete_impact(db: Session, source: Source) -> dict:
+    """删除影响预览(M1-05):将清理的切片数与受影响知识点数。"""
+    chunk_ids = list(db.scalars(select(SourceChunk.id).where(SourceChunk.source_id == source.id)))
+    if not chunk_ids:
+        return {"chunks": 0, "kp_refs_cleared": 0}
+    kp_refs = db.scalars(
+        select(KnowledgeRef).where(KnowledgeRef.chunk_id.in_(chunk_ids))
+    ).fetchall()
+    return {"chunks": len(chunk_ids), "kp_refs_cleared": len(kp_refs)}
+
+
+def delete_source(db: Session, source: Source) -> None:
+    """删除资料:切片与引用级联清理,引用清空的知识点保留但回退为 AI 推断态。"""
+    chunk_ids = list(db.scalars(select(SourceChunk.id).where(SourceChunk.source_id == source.id)))
+    if chunk_ids:
+        ref_kp_ids = set(
+            db.scalars(select(KnowledgeRef.kp_id).where(KnowledgeRef.chunk_id.in_(chunk_ids)))
+        )
+        for kp_id in ref_kp_ids:
+            remaining = db.scalars(
+                select(KnowledgeRef.chunk_id).where(
+                    KnowledgeRef.kp_id == kp_id,
+                    KnowledgeRef.chunk_id.not_in(chunk_ids),
+                )
+            ).first()
+            if remaining is None:
+                kp = db.get(KnowledgePoint, kp_id)
+                if kp is not None:
+                    kp.ai_inferred = True  # 引用清空:不再有来源支撑,明示不静默失效(M1-05)
+    db.delete(source)  # chunks/refs/study_sources 由 CASCADE 清理
+    db.commit()
+
+
 def schedule_parse(tasks: BackgroundTasks, source_id: int) -> None:
     tasks.add_task(run_parse, source_id)
 
@@ -50,15 +95,21 @@ def run_parse(source_id: int) -> None:
     """后台解析入口:独立会话,状态机 pending/processing→ready/failed 落库(M1-06)。"""
     with Session(get_engine()) as db:
         source = db.get(Source, source_id)
-        if source is None or source.raw_path is None:
+        if source is None:
             return
         source.parse_status = "processing"
         source.parse_error = None
         db.commit()
         try:
-            parsed = parsers.parse_file(Path(source.raw_path))
-            _replace_chunks(db, source, parsed.content_md)
-            source.content_md = parsed.content_md
+            if source.raw_path is not None:
+                parsed = parsers.parse_file(Path(source.raw_path))
+                content_md = parsed.content_md
+            elif source.content_md:  # 文本粘贴(M1-07):无文件可解析
+                content_md = source.content_md
+            else:
+                return
+            _replace_chunks(db, source, content_md)
+            source.content_md = content_md
             source.parse_status = "ready"
             db.commit()
         except Exception as err:  # noqa: BLE001 解析失败给明确提示(M1-02)

@@ -48,14 +48,30 @@ LECTURE_SYSTEM_DIRECT = """__TASK__LECTURE__
 - 分段呈现,单次回答聚焦一个小节(认知负荷控制)
 - 全程中文"""
 
+FEYNMAN_SYSTEM = """__TASK__FEYNMAN__
+你是费曼技巧陪练:学习者用自己的话解释知识点,你负责挑错与追问。
+回复结构:
+1. 先确认解释中正确的部分(一句话)
+2. 指出错误或遗漏(如有);解释基本正确时明确说"解释正确"
+3. 以至少一个追问结尾——追问引导学习者补全、修正或延伸(M3-07 验收硬约束)
+引用规则:
+- 依据资料的内容标注来源编号 [n];n 对应提供的资料切片编号
+- 全程中文"""
+
 
 def lecture_messages(
     query: str,
     chunks: list[dict],
     history: list[dict],
     socratic: bool,
+    session_type: str = "lecture",
 ) -> list[dict]:
-    system = LECTURE_SYSTEM_GUIDED if socratic else LECTURE_SYSTEM_DIRECT
+    if session_type == "feynman":
+        system = FEYNMAN_SYSTEM
+        prefix = "学习者对知识点的解释:"
+    else:
+        system = LECTURE_SYSTEM_GUIDED if socratic else LECTURE_SYSTEM_DIRECT
+        prefix = "学习者的问题:"
     numbered = [
         {"n": i + 1, "chunk_id": c["chunk_id"], "heading_path": c["heading_path"],
          "content": c["content"]}
@@ -63,7 +79,7 @@ def lecture_messages(
     ]
     payload = (
         "```chunks\n" + json.dumps(numbered, ensure_ascii=False) + "\n```\n\n"
-        f"学习者的问题:{query}"
+        f"{prefix}{query}"
     )
     return [
         {"role": "system", "content": system},

@@ -1,4 +1,7 @@
-"""Embedding:硅基流动 bge-m3(OpenAI 兼容,1024 维),分批+重试;stub 模式供测试/E2E。"""
+"""Embedding:硅基流动 bge-m3(OpenAI 兼容,1024 维),分批+重试;stub 模式供测试/E2E。
+
+配置经 app_settings 解析(库内 BYO-Key 优先,.env 兜底)。
+"""
 
 import hashlib
 import struct
@@ -13,23 +16,43 @@ _BATCH = 16
 _RETRIES = 3
 
 
+def _resolve() -> tuple[bool, OpenAI | None, str]:
+    from sqlalchemy.orm import Session as OrmSession
+
+    from app.db import get_engine
+    from app.services import app_settings
+
+    with OrmSession(get_engine()) as db:
+        resolved = app_settings.resolve_embed(db)
+    stub = get_config().stub_llm or not resolved["api_key"]
+    client = (
+        None
+        if stub
+        else OpenAI(base_url=resolved["base_url"], api_key=resolved["api_key"])
+    )
+    return stub, client, resolved["model"]
+
+
 def embed_texts(texts: list[str], stub: bool | None = None) -> list[bytes]:
     """返回 sqlite-vec 可直接写入的 float32 序列化 bytes。"""
-    cfg = get_config()
+    cfg_stub, client, model = _resolve()
     if stub is None:
-        stub = cfg.stub_llm or not cfg.embed_api_key
-    if stub:
+        stub = cfg_stub
+    if stub or client is None:
         return [_stub_vector(t) for t in texts]
 
-    client = OpenAI(base_url=cfg.embed_base_url, api_key=cfg.embed_api_key)
     vectors: list[bytes] = []
     for start in range(0, len(texts), _BATCH):
         batch = texts[start : start + _BATCH]
         last_err: Exception | None = None
         for attempt in range(_RETRIES):
             try:
-                resp = client.embeddings.create(model=cfg.embed_model, input=batch)
+                resp = client.embeddings.create(model=model, input=batch)
                 vectors.extend(_serialize_float32(v.embedding) for v in resp.data)
+                if getattr(resp, "usage", None):
+                    from app.services import usage
+
+                    usage.record("embed", resp.usage.prompt_tokens or 0, 0)
                 last_err = None
                 break
             except Exception as err:  # noqa: BLE001 免费档限流,统一退避重试

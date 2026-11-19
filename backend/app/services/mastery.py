@@ -76,10 +76,14 @@ def _maybe_weak(db: Session, kp: KnowledgePoint, evidence_type: str, evidence_id
         )
     ]
     events.sort(key=lambda e: e["id"])
-    if len(events) >= 2 and not events[-1]["correct"] and not events[-2]["correct"]:
-        if kp.mastery_status != "weak":
-            event = _transition(db, kp, "weak", evidence_type, evidence_id)
-            _spawn_review_weak_task(db, kp, event)
+    if (
+        len(events) >= 2
+        and not events[-1]["correct"]
+        and not events[-2]["correct"]
+        and kp.mastery_status != "weak"
+    ):
+        event = _transition(db, kp, "weak", evidence_type, evidence_id)
+        _spawn_review_weak_task(db, kp, event)
 
 
 def _transition(

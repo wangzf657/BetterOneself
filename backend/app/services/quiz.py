@@ -47,7 +47,9 @@ def generate_for_session(db: Session, session: LearningSession) -> list[Quiz]:
     if not chunk_payload:
         raise ValueError("知识点没有来源切片,无法出题")
 
-    out = llm.parse_json(prompts.quiz_gen_messages(kp_name, chunk_payload), QuizGenOut)
+    out = llm.parse_json(
+            prompts.quiz_gen_messages(kp_name, chunk_payload), QuizGenOut, scene="quiz"
+        )
     rows = []
     for item in out.quizzes:
         rows.append(
@@ -81,7 +83,9 @@ def grade(db: Session, quiz: Quiz, user_answer: str) -> Quiz:
         quiz.is_correct = _norm(user_answer) == _norm(quiz.answer)
     else:
         out = llm.parse_json(
-            prompts.quiz_grade_messages(quiz.question, quiz.answer, user_answer), QuizGradeOut
+            prompts.quiz_grade_messages(quiz.question, quiz.answer, user_answer),
+            QuizGradeOut,
+            scene="quiz",
         )
         quiz.is_correct = out.is_correct
         quiz.ai_feedback = out.feedback

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import today
 from app.db import get_engine
-from app.models import KnowledgePoint, MasteryEvent, Task
+from app.models import MasteryEvent, Task
 from tests.util import setup_study_with_kp
 
 TODAY = today()
@@ -124,7 +124,6 @@ def test_review_forgot_counts_as_wrong_evidence(client):
     ).json()
     client.post(f"/api/cards/{card['id']}/rate", json={"rating": 1})
     # 第二次忘了需等卡片再次到期:直接把 due 拉回
-    from datetime import datetime
 
     from sqlalchemy import update
 

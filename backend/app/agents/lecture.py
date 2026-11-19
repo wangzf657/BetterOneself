@@ -44,12 +44,13 @@ def stream_lecture(
     history: list[dict],
     query: str,
     socratic: bool,
+    session_type: str = "lecture",
 ):
     """执行一轮讲解,逐 token yield;调用方累积得完整回答。chunks 已按优先级排好。"""
     global _graph
     if _graph is None:
         _graph = build_graph()
-    messages = prompts.lecture_messages(query, chunks, history, socratic)
+    messages = prompts.lecture_messages(query, chunks, history, socratic, session_type)
     events = _graph.stream(
         {"messages": messages, "chunks": chunks, "socratic": socratic},
         {"configurable": {"thread_id": "lecture"}},

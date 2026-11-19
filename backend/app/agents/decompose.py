@@ -53,7 +53,9 @@ def extract_node(state: DecomposeState) -> dict[str, Any]:
     for i in range(0, len(chunks), BATCH_SIZE):
         batch = chunks[i : i + BATCH_SIZE]
         try:
-            parsed = llm.parse_json(prompts.decompose_messages(batch), ExtractOut)
+            parsed = llm.parse_json(
+                prompts.decompose_messages(batch), ExtractOut, scene="decompose"
+            )
             extracted.extend(kp.model_dump() for kp in parsed.kps)
         except Exception as err:  # noqa: BLE001 单批失败不拖垮整体
             errors.append(f"batch@{i}: {err}")
@@ -161,7 +163,7 @@ def deps_node(state: DecomposeState) -> dict[str, Any]:
     if len(flat) < 2:
         return {"dependencies": []}
     try:
-        out = llm.parse_json(prompts.deps_messages(flat), DepsOut)
+        out = llm.parse_json(prompts.deps_messages(flat), DepsOut, scene="decompose")
         names = {item["name"] for item in flat}
         edges = [
             {"kp": e.kp, "depends_on": e.depends_on}
