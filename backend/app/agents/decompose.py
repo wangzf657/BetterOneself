@@ -1,9 +1,11 @@
-"""拆解流水线(LangGraph,技术总纲 2.3):切片分批抽取 → 树装配去重(M2-01)。
+"""拆解流水线(LangGraph,技术总纲 2.3):切片分批抽取 → 树装配去重(M2-01) → 依赖推断(M2-02)。
 
 装配规则:
 - 同名知识点(规范化后)合并,refs 取并集
 - refs 指向不存在 chunk 的条目被裁掉;裁空后标 ai_inferred
 - 父节点 = 主参考切片顶级标题;父与已有知识点同名则复用,否则建结构父节点并挂首个匹配切片
+
+依赖以 name 对输出(树内 name 全局唯一),service 落库时映射 id 并做环检测。
 """
 
 from typing import Any, Literal, TypedDict
@@ -27,10 +29,20 @@ class ExtractOut(BaseModel):
     kps: list[ExtractedKp]
 
 
+class DepEdge(BaseModel):
+    kp: str
+    depends_on: str
+
+
+class DepsOut(BaseModel):
+    edges: list[DepEdge]
+
+
 class DecomposeState(TypedDict, total=False):
     chunks: list[dict]
     extracted: list[dict]
     tree: list[dict]
+    dependencies: list[dict]
     errors: list[str]
 
 
@@ -136,13 +148,40 @@ def assemble_node(state: DecomposeState) -> dict[str, Any]:
     return {"tree": roots}
 
 
+def deps_node(state: DecomposeState) -> dict[str, Any]:
+    """依赖推断(M2-02):对装配后的知识点推断前后依赖,输出 name 对。"""
+    flat: list[dict] = []
+
+    def walk(nodes):
+        for n in nodes:
+            flat.append({"name": n["name"], "summary": n.get("summary", "")})
+            walk(n.get("children", []))
+
+    walk(state["tree"])
+    if len(flat) < 2:
+        return {"dependencies": []}
+    try:
+        out = llm.parse_json(prompts.deps_messages(flat), DepsOut)
+        names = {item["name"] for item in flat}
+        edges = [
+            {"kp": e.kp, "depends_on": e.depends_on}
+            for e in out.edges
+            if e.kp in names and e.depends_on in names and e.kp != e.depends_on
+        ]
+        return {"dependencies": edges}
+    except Exception:  # noqa: BLE001 依赖推断失败不阻塞拆解主流程
+        return {"dependencies": []}
+
+
 def build_graph():
     graph = StateGraph(DecomposeState)
     graph.add_node("extract", extract_node)
     graph.add_node("assemble", assemble_node)
+    graph.add_node("deps", deps_node)
     graph.add_edge(START, "extract")
     graph.add_edge("extract", "assemble")
-    graph.add_edge("assemble", END)
+    graph.add_edge("assemble", "deps")
+    graph.add_edge("deps", END)
     return graph.compile()
 
 

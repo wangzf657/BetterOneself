@@ -20,6 +20,8 @@ def stub_chat(messages: list[dict]) -> str:
         return _quiz_gen(text)
     if "__TASK__QUIZ_GRADE__" in text:
         return _quiz_grade(text)
+    if "__TASK__DEPS_INFER__" in text:
+        return _deps_infer(text)
     return "(stub)未识别任务,请检查提示词是否带 __TASK__ 标记。"
 
 
@@ -120,3 +122,17 @@ def _quiz_grade(text: str) -> str:
         else f"与参考答案重叠不足({overlap:.0%}),建议回看源文后复述要点。"
     )
     return json.dumps({"is_correct": correct, "feedback": feedback}, ensure_ascii=False)
+
+
+def _deps_infer(text: str) -> str:
+    m = re.search(r"```kps\n(.*?)\n```", text, re.DOTALL)
+    try:
+        kps = json.loads(m.group(1)) if m else []
+    except json.JSONDecodeError:
+        kps = []
+    # 确定性推断:列表顺序即章节顺序,相邻链式依赖
+    edges = [
+        {"kp": kps[i]["name"], "depends_on": kps[i - 1]["name"]}
+        for i in range(1, len(kps))
+    ]
+    return json.dumps({"edges": edges}, ensure_ascii=False)

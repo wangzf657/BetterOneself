@@ -1,12 +1,23 @@
-"""知识点模块(M2-01):拆解落库、树查询。"""
+"""知识点模块(M2-01/02/03):拆解落库(含依赖)、树查询、编辑操作。"""
 
 from collections.abc import Sequence
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.agents import decompose
-from app.models import KnowledgePoint, KnowledgeRef, SourceChunk, StudySource
+from app.models import (
+    Card,
+    KnowledgePoint,
+    KnowledgeRef,
+    KpDependency,
+    LearningSession,
+    MasteryEvent,
+    Quiz,
+    SourceChunk,
+    StudySource,
+    Task,
+)
 
 
 def decompose_source(db: Session, study_id: int, source_id: int) -> int:
@@ -29,7 +40,49 @@ def decompose_source(db: Session, study_id: int, source_id: int) -> int:
             for c in chunks
         ]
     )
-    return _insert_tree(db, study_id, result["tree"])
+    count = _insert_tree(db, study_id, result["tree"])
+
+    # 依赖落库:name → id 映射(树内唯一),成环边丢弃
+    if result.get("dependencies"):
+        name_to_id = dict(
+            db.execute(
+                select(KnowledgePoint.name, KnowledgePoint.id).where(
+                    KnowledgePoint.study_id == study_id
+                )
+            ).all()
+        )
+        existing = set(
+            db.execute(
+                select(KpDependency.kp_id, KpDependency.depends_on_kp_id).where(
+                    KpDependency.kp_id.in_(name_to_id.values())
+                )
+            ).all()
+        )
+        edges: set[tuple[int, int]] = {
+            (name_to_id[e["kp"]], name_to_id[e["depends_on"]])
+            for e in result["dependencies"]
+            if e["kp"] in name_to_id and e["depends_on"] in name_to_id
+        }
+        # 邻接表只含已提交的边;候选边边加边入表(同批互检也能发现反向成环)
+        adjacency: dict[int, list[int]] = {}
+        for kp_id, dep_id in existing:
+            adjacency.setdefault(dep_id, []).append(kp_id)
+
+        def reaches(start: int, goal: int, seen: set[int]) -> bool:
+            if start == goal:
+                return True
+            return any(
+                reaches(nxt, goal, seen | {nxt})
+                for nxt in adjacency.get(start, [])
+                if nxt not in seen
+            )
+
+        for kp_id, dep_id in sorted(edges - existing):
+            # kp 依赖 dep;若 dep 已(间接)依赖 kp,加这条边会成环,丢弃
+            if not reaches(dep_id, kp_id, {dep_id}):
+                db.add(KpDependency(kp_id=kp_id, depends_on_kp_id=dep_id))
+                adjacency.setdefault(dep_id, []).append(kp_id)
+    return count
 
 
 def delete_source_kps(db: Session, study_ids: Sequence[int], source_id: int) -> None:
@@ -139,3 +192,175 @@ def study_source_ids(db: Session, study_id: int) -> Sequence[int]:
     return db.scalars(
         select(StudySource.source_id).where(StudySource.study_id == study_id)
     ).fetchall()
+
+
+# ---------- 编辑(M2-03):改名/删除/新增/合并;计划与档案经外键与 join 同步生效 ----------
+
+
+def update_kp(
+    db: Session, kp: KnowledgePoint, *, name: str | None, summary: str | None
+) -> KnowledgePoint:
+    if name is not None:
+        kp.name = name[:300]
+    if summary is not None:
+        kp.summary = summary
+    db.commit()
+    db.refresh(kp)
+    return kp
+
+
+def create_kp(
+    db: Session, study_id: int, *, name: str, summary: str = "", parent_id: int | None = None
+) -> KnowledgePoint:
+    siblings = db.scalar(
+        select(KnowledgePoint.id)
+        .where(KnowledgePoint.study_id == study_id, KnowledgePoint.parent_id == parent_id)
+        .order_by(KnowledgePoint.sort_order.desc())
+        .limit(1)
+    )
+    kp = KnowledgePoint(
+        study_id=study_id,
+        parent_id=parent_id,
+        name=name[:300],
+        summary=summary,
+        sort_order=(siblings + 1) if siblings is not None else 0,
+    )
+    db.add(kp)
+    db.commit()
+    db.refresh(kp)
+    return kp
+
+
+def delete_kp(db: Session, kp: KnowledgePoint) -> None:
+    """删除知识点:任务/卡片/测验随删(FK CASCADE);子节点提为根。"""
+    for child in db.scalars(
+        select(KnowledgePoint).where(KnowledgePoint.parent_id == kp.id)
+    ).fetchall():
+        child.parent_id = kp.parent_id
+    db.delete(kp)  # refs/deps/tasks/cards/quizzes 由 CASCADE 处理
+    db.commit()
+
+
+def merge_kps(db: Session, source: KnowledgePoint, target: KnowledgePoint) -> KnowledgePoint:
+    """把 source 合并进 target:refs/子节点/关联数据/依赖边全部转移后删除 source。"""
+    if source.id == target.id or source.study_id != target.study_id:
+        raise ValueError("合并目标无效")
+
+    # target 不能是 source 的后代(否则树成环)
+    node: int | None = target.id
+    while node is not None:
+        if node == source.id:
+            raise ValueError("不能合并到自己的后代节点")
+        parent = db.get(KnowledgePoint, node)
+        node = parent.parent_id if parent else None
+
+    target_refs = set(
+        db.scalars(select(KnowledgeRef.chunk_id).where(KnowledgeRef.kp_id == target.id))
+    )
+    for ref in db.scalars(
+        select(KnowledgeRef).where(KnowledgeRef.kp_id == source.id)
+    ).fetchall():
+        if ref.chunk_id not in target_refs:
+            db.execute(
+                update(KnowledgeRef)
+                .where(KnowledgeRef.kp_id == source.id, KnowledgeRef.chunk_id == ref.chunk_id)
+                .values(kp_id=target.id)
+            )
+    db.execute(delete(KnowledgeRef).where(KnowledgeRef.kp_id == source.id))
+
+    for child in db.scalars(
+        select(KnowledgePoint).where(KnowledgePoint.parent_id == source.id)
+    ).fetchall():
+        child.parent_id = target.id
+
+    for model in (Card, Quiz, Task, MasteryEvent, LearningSession):
+        db.execute(
+            update(model).where(model.kp_id == source.id).values(kp_id=target.id)
+        )
+    # 依赖边转移(去重后)
+    target_edges = set(
+        db.execute(
+            select(KpDependency.kp_id, KpDependency.depends_on_kp_id).where(
+                KpDependency.kp_id == target.id
+            )
+        ).all()
+    )
+    for edge in db.execute(
+        select(KpDependency.kp_id, KpDependency.depends_on_kp_id).where(
+            KpDependency.kp_id == source.id
+        )
+    ).all():
+        if edge not in target_edges:
+            db.execute(
+                update(KpDependency)
+                .where(
+                    KpDependency.kp_id == source.id,
+                    KpDependency.depends_on_kp_id == edge[1],
+                )
+                .values(kp_id=target.id)
+            )
+    db.execute(delete(KpDependency).where(KpDependency.kp_id == source.id))
+    db.execute(delete(KpDependency).where(KpDependency.depends_on_kp_id == source.id))
+
+    if not target.summary and source.summary:
+        target.summary = source.summary
+    db.delete(source)
+    db.commit()
+    db.refresh(target)
+    return target
+
+
+def get_graph(db: Session, study_id: int) -> dict:
+    """依赖图数据(M2-02,@xyflow 用)。"""
+    kps = db.scalars(
+        select(KnowledgePoint).where(KnowledgePoint.study_id == study_id)
+    ).fetchall()
+    ids = [kp.id for kp in kps]
+    edges = (
+        db.execute(
+            select(KpDependency.kp_id, KpDependency.depends_on_kp_id).where(
+                KpDependency.kp_id.in_(ids)
+            )
+        ).all()
+        if ids
+        else []
+    )
+    return {
+        "nodes": [
+            {
+                "id": kp.id,
+                "name": kp.name,
+                "kp_type": kp.kp_type,
+                "mastery_status": kp.mastery_status,
+                "ai_inferred": kp.ai_inferred,
+            }
+            for kp in kps
+        ],
+        "edges": [
+            {"source": kp_id, "depends_on": dep_id} for kp_id, dep_id in edges
+        ],
+    }
+
+
+def load_leaves_with_deps(
+    db: Session, study_id: int
+) -> tuple[list[KnowledgePoint], list[tuple[int, int]]]:
+    """计划排程输入:叶子知识点 + 依赖边(仅保留两端都是叶子的边)。"""
+    kps = db.scalars(
+        select(KnowledgePoint)
+        .where(KnowledgePoint.study_id == study_id)
+        .order_by(KnowledgePoint.sort_order, KnowledgePoint.id)
+    ).fetchall()
+    parent_ids = {kp.parent_id for kp in kps if kp.parent_id is not None}
+    leaves = [kp for kp in kps if kp.id not in parent_ids]
+    leaf_ids = {kp.id for kp in leaves}
+    edges = [
+        (kp_id, dep_id)
+        for kp_id, dep_id in db.execute(
+            select(KpDependency.kp_id, KpDependency.depends_on_kp_id).where(
+                KpDependency.kp_id.in_(leaf_ids),
+                KpDependency.depends_on_kp_id.in_(leaf_ids),
+            )
+        ).all()
+    ]
+    return leaves, edges

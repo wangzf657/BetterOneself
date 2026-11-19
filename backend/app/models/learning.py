@@ -17,7 +17,9 @@ class LearningSession(Base):
     )
     # 自由提问无任务(M3-06)
     task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id"))
-    kp_id: Mapped[int | None] = mapped_column(ForeignKey("knowledge_points.id"))
+    kp_id: Mapped[int | None] = mapped_column(
+        ForeignKey("knowledge_points.id", ondelete="CASCADE")
+    )
     # lecture / feynman / free
     session_type: Mapped[str] = mapped_column(String(16), default="lecture")
     # 会话级苏格拉底开关,默认引导式(M3-03)
@@ -51,7 +53,9 @@ class Quiz(Base):
     session_id: Mapped[int] = mapped_column(
         ForeignKey("sessions.id", ondelete="CASCADE"), index=True
     )
-    kp_id: Mapped[int] = mapped_column(ForeignKey("knowledge_points.id"), index=True)
+    kp_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_points.id", ondelete="CASCADE"), index=True
+    )
     # objective / short_answer
     q_type: Mapped[str] = mapped_column(String(16))
     question: Mapped[str] = mapped_column(Text)

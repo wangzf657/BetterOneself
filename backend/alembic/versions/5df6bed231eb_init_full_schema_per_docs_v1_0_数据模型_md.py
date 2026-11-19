@@ -1,21 +1,21 @@
 """init: full schema per docs/v1.0/数据模型.md
 
-Revision ID: 6722d17c37ee
+Revision ID: 5df6bed231eb
 Revises: 
-Create Date: 2026-11-18 11:31:31.641354
+Create Date: 2026-11-18 18:17:40.075210
 
 """
-from collections.abc import Sequence
-
-import sqlalchemy as sa
+from typing import Sequence, Union
 
 from alembic import op
+import sqlalchemy as sa
+
 
 # revision identifiers, used by Alembic.
-revision: str = '6722d17c37ee'
-down_revision: str | Sequence[str] | None = None
-branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+revision: str = '5df6bed231eb'
+down_revision: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
@@ -217,7 +217,7 @@ def upgrade() -> None:
     sa.Column('weak_evidence_id', sa.String(length=64), nullable=True),
     sa.Column('completed_at', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
-    sa.ForeignKeyConstraint(['kp_id'], ['knowledge_points.id'], ),
+    sa.ForeignKeyConstraint(['kp_id'], ['knowledge_points.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['origin_task_id'], ['tasks.id'], ),
     sa.ForeignKeyConstraint(['plan_id'], ['plans.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['study_id'], ['studies.id'], ondelete='CASCADE'),
@@ -253,7 +253,7 @@ def upgrade() -> None:
     sa.Column('status', sa.String(length=16), nullable=False),
     sa.Column('started_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.Column('ended_at', sa.DateTime(), nullable=True),
-    sa.ForeignKeyConstraint(['kp_id'], ['knowledge_points.id'], ),
+    sa.ForeignKeyConstraint(['kp_id'], ['knowledge_points.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['study_id'], ['studies.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -289,7 +289,7 @@ def upgrade() -> None:
     sa.Column('chunk_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['chunk_id'], ['source_chunks.id'], ),
-    sa.ForeignKeyConstraint(['kp_id'], ['knowledge_points.id'], ),
+    sa.ForeignKeyConstraint(['kp_id'], ['knowledge_points.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['session_id'], ['sessions.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )

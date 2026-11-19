@@ -1,5 +1,6 @@
 """环境配置。开发期直读 backend/.env(技术总纲 2.6);里程碑 5 设置页上线后由库内配置覆盖。"""
 
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
@@ -43,3 +44,9 @@ def get_config() -> Config:
     cfg = Config()
     cfg.uploads_dir.mkdir(parents=True, exist_ok=True)
     return cfg
+
+
+def today() -> date:
+    """集中取"今天":E2E 用 BO_FAKE_TODAY 模拟次日/逾期/中断。"""
+    cfg = get_config()
+    return date.fromisoformat(cfg.fake_today) if cfg.fake_today else date.today()

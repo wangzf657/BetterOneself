@@ -46,7 +46,9 @@ class Task(Base):
     study_id: Mapped[int] = mapped_column(
         ForeignKey("studies.id", ondelete="CASCADE"), index=True
     )
-    kp_id: Mapped[int] = mapped_column(ForeignKey("knowledge_points.id"), index=True)
+    kp_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_points.id", ondelete="CASCADE"), index=True
+    )
     # learn / review_weak / feynman / quiz
     task_type: Mapped[str] = mapped_column(String(16))
     scheduled_date: Mapped[date] = mapped_column(Date, index=True)

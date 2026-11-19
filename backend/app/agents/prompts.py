@@ -116,3 +116,25 @@ def quiz_grade_messages(question: str, reference: str, user_answer: str) -> list
         {"role": "system", "content": QUIZ_GRADE_SYSTEM},
         {"role": "user", "content": payload},
     ]
+
+
+DEPS_SYSTEM = """__TASK__DEPS_INFER__
+你是知识点依赖推断引擎。给定知识点列表,推断学习顺序上的前后依赖:A 依赖 B = 必须先学 B 才能理解 A。
+输出 JSON:{"edges": [{"kp": "A 名称", "depends_on": "B 名称"}]}
+规则:
+- 只输出有把握的依赖;没有依赖关系的不要硬造
+- 不要自环(A 依赖 A);名称必须来自给定列表原文
+- 典型依赖:概念依赖它的前提概念;操作依赖相关概念;章节默认顺序仅供参考,不可无脑全链
+- 只输出 JSON"""
+
+
+def deps_messages(kps: list[dict]) -> list[dict]:
+    return [
+        {"role": "system", "content": DEPS_SYSTEM},
+        {
+            "role": "user",
+            "content": "```kps\n"
+            + json.dumps(kps, ensure_ascii=False)
+            + "\n```",
+        },
+    ]
