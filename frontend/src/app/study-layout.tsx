@@ -2,11 +2,14 @@ import { NavLink, Outlet, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, type Schemas } from '@/lib/api'
 
-// tab 次序=用户旅程(页面清单 §1):资料 → 知识点 → 计划;后续里程碑按序补复习/卡片/档案/摘要
+// tab 次序=用户旅程(页面清单 §1):资料→知识点→计划→卡片→档案→摘要(复习是全局页)
 const TABS = [
   { to: 'sources', label: '资料' },
   { to: 'knowledge', label: '知识点' },
   { to: 'plan', label: '计划' },
+  { to: 'cards', label: '卡片' },
+  { to: 'mastery', label: '档案' },
+  { to: 'summaries', label: '摘要' },
 ]
 
 /** 项目内布局:项目名 + 左侧 tab + 内容区 */

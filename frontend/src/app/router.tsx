@@ -10,6 +10,10 @@ import { LearnPage } from '@/features/learn/session'
 import { ReviewPage } from '@/features/review/page'
 import { InterviewPage } from '@/features/plan/interview'
 import { PlanPage } from '@/features/plan/page'
+import { CardsPage } from '@/features/cards/page'
+import { MasteryPage } from '@/features/mastery/page'
+import { SummariesPage } from '@/features/summaries/page'
+import { SettingsPage } from '@/features/settings/page'
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +22,7 @@ export const router = createBrowserRouter([
       { path: '/', element: <TodayPage /> },
       { path: '/studies', element: <StudiesPage /> },
       { path: '/review', element: <ReviewPage /> },
+      { path: '/settings', element: <SettingsPage /> },
       {
         path: '/studies/:id',
         element: <StudyLayout />,
@@ -27,6 +32,9 @@ export const router = createBrowserRouter([
           { path: 'knowledge', element: <KnowledgePage /> },
           { path: 'plan', element: <PlanPage /> },
           { path: 'plan/interview', element: <InterviewPage /> },
+          { path: 'cards', element: <CardsPage /> },
+          { path: 'mastery', element: <MasteryPage /> },
+          { path: 'summaries', element: <SummariesPage /> },
           { path: 'learn/:sessionId', element: <LearnPage /> },
         ],
       },

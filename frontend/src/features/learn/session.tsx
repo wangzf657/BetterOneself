@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookmarkPlus, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import Markdown from 'react-markdown'
@@ -99,6 +99,12 @@ export function LearnPage() {
       <div className="flex min-h-0 flex-1">
         {/* 对话流 */}
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* 自由提问切换线程(M3-06):同资料不限当日知识点,不改变计划 */}
+          {session.session_type !== 'free' && (
+            <div className="border-b px-6 py-1.5 text-xs">
+              <FreeQuestionLink studyId={session.study_id} />
+            </div>
+          )}
           <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
             <div className="mx-auto max-w-2xl space-y-4">
               {session.messages.map((m) => (
@@ -223,5 +229,29 @@ function SourceSidebar({ cite }: { cite: Citation }) {
         </div>
       </ScrollArea>
     </aside>
+  )
+}
+
+/** 自由提问入口(M3-06):创建 free 会话切换线程;回答带引用,不改变当日计划 */
+function FreeQuestionLink({ studyId }: { studyId: number }) {
+  const navigate = useNavigate()
+  const [pending, setPending] = useState(false)
+  return (
+    <button
+      type="button"
+      className="text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
+      disabled={pending}
+      onClick={() => {
+        setPending(true)
+        api<Schemas['SessionOut']>(`/api/studies/${studyId}/sessions`, {
+          method: 'POST',
+          body: JSON.stringify({ session_type: 'free' }),
+        })
+          .then((s) => navigate(`/studies/${studyId}/learn/${s.id}`))
+          .catch(() => setPending(false))
+      }}
+    >
+      自由提问:不限本知识点,就当前资料随便问 →(新线程)
+    </button>
   )
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -10,6 +10,7 @@ import {
   GitBranch,
   ListTree,
   Merge,
+  Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -31,7 +32,7 @@ import { api, type Schemas } from '@/lib/api'
 
 type KpNode = Schemas['KpNode']
 
-/** 知识点页(M2-01/02/03):树⇄依赖图切换、编辑(增删改/合并)、AI 推断徽标、引用回跳、开始学习 */
+/** 知识点页(M2-01/02/03/07, M6-03):树⇄依赖图、编辑、AI 推断徽标、自评标记+快速验证 */
 export function KnowledgePage() {
   const { id: studyId } = useParams()
   const navigate = useNavigate()
@@ -40,6 +41,7 @@ export function KnowledgePage() {
   const [editing, setEditing] = useState<KpNode | null>(null)
   const [creating, setCreating] = useState<{ parentId: number | null } | null>(null)
   const [merging, setMerging] = useState<KpNode | null>(null)
+  const [verifying, setVerifying] = useState<KpNode | null>(null) // 快速验证(M2-07)
 
   const { data: tree, isLoading } = useQuery({
     queryKey: ['knowledge', studyId],
@@ -59,6 +61,16 @@ export function KnowledgePage() {
     void queryClient.invalidateQueries({ queryKey: ['knowledge', studyId] })
     void queryClient.invalidateQueries({ queryKey: ['kp-graph', studyId] })
   }
+
+  const selfReport = useMutation({
+    mutationFn: ({ id, mastered }: { id: number; mastered: boolean }) =>
+      api<{ self_reported: string }>(`/api/kps/${id}/self-report`, {
+        method: 'POST',
+        body: JSON.stringify({ mastered }),
+      }),
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  })
 
   const startSession = useMutation({
     mutationFn: (kpId: number) =>
@@ -142,6 +154,10 @@ export function KnowledgePage() {
               }}
               onMerge={setMerging}
               onCreateChild={(parentId) => setCreating({ parentId })}
+              onSelfReport={(node, mastered) => {
+                selfReport.mutate({ id: node.id, mastered }) // 先标记(M2-07)
+                if (mastered) setVerifying(node) // 可选快速验证;答错自动回滚
+              }}
             />
           ))}
         </div>
@@ -149,6 +165,19 @@ export function KnowledgePage() {
         <div className="h-[560px] rounded-lg border" data-testid="kp-graph">
           {graph && <DepGraph nodes={graph.nodes} edges={graph.edges} />}
         </div>
+      )}
+
+      {/* 快速验证(M2-07):标已掌握后可测一题;答错自动回滚进计划 */}
+      {verifying && (
+        <QuickVerifyDialog
+          key={verifying.id}
+          kp={verifying}
+          onClose={() => setVerifying(null)}
+          onSettled={() => {
+            setVerifying(null)
+            invalidate()
+          }}
+        />
       )}
 
       {/* 编辑对话框:key 重挂载以按所选 kp 重置表单 */}
@@ -199,6 +228,7 @@ function KpRow({
   onDelete,
   onMerge,
   onCreateChild,
+  onSelfReport,
 }: {
   node: KpNode
   depth: number
@@ -207,6 +237,7 @@ function KpRow({
   onDelete: (n: KpNode) => void
   onMerge: (n: KpNode) => void
   onCreateChild: (parentId: number) => void
+  onSelfReport: (n: KpNode, mastered: boolean) => void
 }) {
   const [open, setOpen] = useState(true)
   const hasChildren = node.children.length > 0
@@ -234,6 +265,11 @@ function KpRow({
           )}
         </button>
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{node.name}</span>
+        {node.self_reported === 'mastered' && (
+          <Badge variant="outline" className="border-sky-400/60 text-[10px] text-sky-600">
+            我已掌握(自评)
+          </Badge>
+        )}
         {node.mastery_status === 'weak' && (
           <Badge variant="destructive" className="text-[10px]">
             薄弱
@@ -259,6 +295,16 @@ function KpRow({
           </Link>
         )}
         <span className="hidden gap-0.5 group-hover:flex">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            aria-label={`自评 ${node.name}`}
+            title={node.self_reported === 'mastered' ? '取消自评' : '我已掌握(可快速验证)'}
+            onClick={() => onSelfReport(node, node.self_reported !== 'mastered')}
+          >
+            <Check size={13} />
+          </Button>
           <Button
             size="icon"
             variant="ghost"
@@ -316,6 +362,7 @@ function KpRow({
             onDelete={onDelete}
             onMerge={onMerge}
             onCreateChild={onCreateChild}
+            onSelfReport={onSelfReport}
           />
         ))}
       {open && node.summary && !hasChildren && (
@@ -576,5 +623,85 @@ function DepGraph({
         <Controls showInteractive={false} />
       </ReactFlow>
     </ReactFlowProvider>
+  )
+}
+
+/** 快速验证(M2-07):自评"已掌握"后测 1 题客观;答错自动回滚进计划 */
+function QuickVerifyDialog({
+  kp,
+  onClose,
+  onSettled,
+}: {
+  kp: KpNode
+  onClose: () => void
+  onSettled: () => void
+}) {
+  const [question, setQuestion] = useState<{ quiz_id: number; question: string } | null>(null)
+  const [answer, setAnswer] = useState('')
+  const [result, setResult] = useState<{ is_correct: boolean; self_reported: string } | null>(null)
+
+  useEffect(() => {
+    api<{ quiz_id: number; question: string }>(`/api/kps/${kp.id}/quick-quiz`, { method: 'POST' })
+      .then(setQuestion)
+      .catch((e: Error) => {
+        toast.error(e.message)
+        onClose()
+      })
+  }, [kp.id, onClose])
+
+  const submit = useMutation({
+    mutationFn: () =>
+      api<{ is_correct: boolean; self_reported: string }>(
+        `/api/kps/${kp.id}/quick-quiz/${question!.quiz_id}/answer`,
+        { method: 'POST', body: JSON.stringify({ answer }) },
+      ),
+    onSuccess: (r) => {
+      setResult(r)
+      if (!r.is_correct) toast.info('验证未通过:已回滚自评,该知识点补进明日计划')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onSettled()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>快速验证「{kp.name}」</DialogTitle>
+        </DialogHeader>
+        {!question && <Skeleton className="h-24 w-full" />}
+        {question && !result && (
+          <div className="space-y-3">
+            <p className="text-sm">{question.question}</p>
+            <Input
+              placeholder="你的答案…"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && answer.trim()) submit.mutate()
+              }}
+              autoFocus
+            />
+            <div className="flex justify-between">
+              <Button variant="ghost" onClick={onSettled}>
+                跳过验证
+              </Button>
+              <Button disabled={!answer.trim() || submit.isPending} onClick={() => submit.mutate()}>
+                提交
+              </Button>
+            </div>
+          </div>
+        )}
+        {result && (
+          <div className="space-y-3">
+            <p className="text-sm">
+              {result.is_correct
+                ? '✅ 验证通过,自评保持「我已掌握」。'
+                : '❌ 验证未通过:已回滚自评,该知识点补进明日计划。'}
+            </p>
+            <Button onClick={onSettled}>好的</Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

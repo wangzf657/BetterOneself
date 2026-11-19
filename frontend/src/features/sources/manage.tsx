@@ -2,9 +2,13 @@ import { useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { api, type Schemas } from '@/lib/api'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -35,22 +39,30 @@ function StatusBadge({ s }: { s: Schemas['SourceOut'] }) {
   )
 }
 
-/** 资料管理(M1-02/06):上传 → 列表轮询解析状态;URL/repo/文本入口里程碑 5 */
+/** 资料管理(M1-02/05/06/07):批量文件 + 粘贴文本,重命名/删除(带派生影响提示) */
 export function SourcesPage() {
   const { id: studyId } = useParams()
   const queryClient = useQueryClient()
   const fileInput = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
+  const [textOpen, setTextOpen] = useState(false)
+  const [textTitle, setTextTitle] = useState('')
+  const [textContent, setTextContent] = useState('')
+  const [renaming, setRenaming] = useState<Schemas['SourceOut'] | null>(null)
+  const [renameTitle, setRenameTitle] = useState('')
+  const [deleting, setDeleting] = useState<Schemas['SourceOut'] | null>(null)
+  const [impact, setImpact] = useState<{ chunks: number; kp_refs_cleared: number } | null>(null)
 
   const { data: sources } = useQuery({
     queryKey: ['sources', studyId],
     queryFn: () => api<Schemas['SourceOut'][]>(`/api/studies/${studyId}/sources`),
-    // 解析中/等待中每 2s 轮询;全部就绪后停(页面清单 §4 后台任务约定)
     refetchInterval: (q) =>
       q.state.data?.some((s) => s.parse_status === 'pending' || s.parse_status === 'processing')
         ? 2000
         : false,
   })
+
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['sources', studyId] })
 
   const upload = useMutation({
     mutationFn: (file: File) => {
@@ -63,7 +75,28 @@ export function SourcesPage() {
     },
     onSuccess: (s) => {
       toast.success(`已上传「${s.title}」,后台解析中`)
-      void queryClient.invalidateQueries({ queryKey: ['sources', studyId] })
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const onFiles = (files: FileList | null) => {
+    if (!files) return
+    for (const f of Array.from(files)) upload.mutate(f) // M1-02 批量:逐个上传,失败单独提示
+  }
+
+  const importText = useMutation({
+    mutationFn: () =>
+      api<Schemas['SourceOut']>(`/api/studies/${studyId}/sources/text`, {
+        method: 'POST',
+        body: JSON.stringify({ title: textTitle, content: textContent }),
+      }),
+    onSuccess: (s) => {
+      toast.success(`「${s.title}」已导入,后台解析中`)
+      setTextOpen(false)
+      setTextTitle('')
+      setTextContent('')
+      invalidate()
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -71,12 +104,42 @@ export function SourcesPage() {
   const reparse = useMutation({
     mutationFn: (sid: number) =>
       api<Schemas['SourceOut']>(`/api/sources/${sid}/reparse`, { method: 'POST' }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['sources', studyId] }),
+    onSuccess: invalidate,
   })
 
-  const onFiles = (files: FileList | null) => {
-    if (!files) return
-    for (const f of Array.from(files)) upload.mutate(f)
+  const rename = useMutation({
+    mutationFn: ({ id, title }: { id: number; title: string }) =>
+      api<Schemas['SourceOut']>(`/api/sources/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+      }),
+    onSuccess: () => {
+      setRenaming(null)
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const remove = useMutation({
+    mutationFn: (id: number) => api<void>(`/api/sources/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success('资料已删除')
+      setDeleting(null)
+      invalidate()
+      void queryClient.invalidateQueries({ queryKey: ['knowledge', studyId] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const askDelete = async (s: Schemas['SourceOut']) => {
+    setDeleting(s)
+    try {
+      setImpact(
+        await api<{ chunks: number; kp_refs_cleared: number }>(`/api/sources/${s.id}/impact`),
+      )
+    } catch {
+      setImpact(null)
+    }
   }
 
   return (
@@ -94,14 +157,20 @@ export function SourcesPage() {
           onFiles(e.dataTransfer.files)
         }}
       >
-        <p className="text-sm text-muted-foreground">拖拽 PDF / Markdown 到这里,或</p>
-        <Button variant="outline" className="mt-3" onClick={() => fileInput.current?.click()}>
-          选择文件
-        </Button>
+        <p className="text-sm text-muted-foreground">拖拽 PDF / Markdown(可多选)到这里,或</p>
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <Button variant="outline" onClick={() => fileInput.current?.click()}>
+            选择文件
+          </Button>
+          <Button variant="ghost" onClick={() => setTextOpen(true)}>
+            <Plus size={14} /> 粘贴文本
+          </Button>
+        </div>
         <input
           ref={fileInput}
           type="file"
           accept=".pdf,.md,.markdown"
+          multiple
           className="hidden"
           onChange={(e) => {
             onFiles(e.target.files)
@@ -122,6 +191,29 @@ export function SourcesPage() {
                 {s.title}
               </Link>
               <StatusBadge s={s} />
+              <span className="hidden gap-0.5 group-hover:flex md:flex">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  aria-label={`重命名 ${s.title}`}
+                  onClick={() => {
+                    setRenaming(s)
+                    setRenameTitle(s.title)
+                  }}
+                >
+                  <Pencil size={13} />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  aria-label={`删除 ${s.title}`}
+                  onClick={() => void askDelete(s)}
+                >
+                  <Trash2 size={13} />
+                </Button>
+              </span>
               {s.parse_status === 'failed' && (
                 <Button size="sm" variant="outline" onClick={() => reparse.mutate(s.id)}>
                   重试
@@ -139,6 +231,85 @@ export function SourcesPage() {
           </p>
         )}
       </div>
+
+      {/* 粘贴文本(M1-07) */}
+      <Dialog open={textOpen} onOpenChange={setTextOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>粘贴文本导入</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              importText.mutate()
+            }}
+          >
+            <Input
+              placeholder="标题"
+              value={textTitle}
+              onChange={(e) => setTextTitle(e.target.value)}
+              required
+            />
+            <Textarea
+              placeholder="粘贴笔记/邮件片段…(支持 Markdown 标题,便于拆解)"
+              value={textContent}
+              onChange={(e) => setTextContent(e.target.value)}
+              rows={8}
+              required
+            />
+            <Button type="submit" disabled={importText.isPending || !textTitle || !textContent}>
+              {importText.isPending ? '导入中…' : '导入'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 重命名(M1-05) */}
+      <Dialog open={!!renaming} onOpenChange={(o) => !o && setRenaming(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重命名资料</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (renaming) rename.mutate({ id: renaming.id, title: renameTitle })
+            }}
+          >
+            <Input value={renameTitle} onChange={(e) => setRenameTitle(e.target.value)} required />
+            <Button type="submit" disabled={!renameTitle.trim() || rename.isPending}>
+              保存
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认:展示派生影响(M1-05) */}
+      <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>删除资料「{deleting?.title}」?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            将删除 {impact?.chunks ?? '?'} 个切片,清空 {impact?.kp_refs_cleared ?? '?'}{' '}
+            处知识点来源引用 (失去引用的知识点将标注「AI 推断」,不会被静默删除)。
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeleting(null)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleting && remove.mutate(deleting.id)}
+              disabled={remove.isPending}
+            >
+              确认删除
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -14,8 +14,9 @@ const TASK_TYPE_LABEL: Record<string, string> = {
   quiz: '测验',
 }
 
-/** 今日任务页(M5-01/02/04):首页即今日任务;逾期横幅、到期复习入口、薄弱点标识 */
+/** 今日任务页(M5-01/02/04/06):首页即今日任务;逾期横幅、复习入口、薄弱点标识、回炉询问 */
 export function TodayPage() {
+  const queryClient = useQueryClient()
   const { data: today, isLoading } = useQuery({
     queryKey: ['today'],
     queryFn: () => api<Schemas['TodayOut']>('/api/today'),
@@ -25,6 +26,31 @@ export function TodayPage() {
   const { data: studies } = useQuery({
     queryKey: ['studies'],
     queryFn: () => api<Schemas['StudyOut'][]>('/api/studies'),
+  })
+  const firstStudy = studies?.[0]
+  const { data: inactivity } = useQuery({
+    queryKey: ['inactivity', firstStudy?.id],
+    queryFn: () =>
+      api<{ inactive_days: number; suggest_reset: boolean }>(
+        `/api/studies/${firstStudy!.id}/inactivity`,
+      ),
+    enabled: !!firstStudy,
+  })
+
+  const resettle = useMutation({
+    mutationFn: () =>
+      api<{ tasks_rescheduled: number; weak_cards_pulled: number }>(
+        `/api/studies/${firstStudy!.id}/return-from-break`,
+        { method: 'POST' },
+      ),
+    onSuccess: (r) => {
+      toast.success(
+        `回炉完成:${r.tasks_rescheduled} 个任务已重排,${r.weak_cards_pulled} 张薄弱卡提到今天`,
+      )
+      void queryClient.invalidateQueries({ queryKey: ['today'] })
+      void queryClient.invalidateQueries({ queryKey: ['inactivity'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
   })
 
   if (isLoading) return <Skeleton className="mx-auto mt-10 h-96 w-full max-w-3xl" />
@@ -73,6 +99,24 @@ export function TodayPage() {
             </CardContent>
           </Card>
         </Link>
+      )}
+
+      {/* 中断回炉询问(M5-06) */}
+      {inactivity?.suggest_reset && (
+        <Card
+          className="border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20"
+          data-testid="resettle-banner"
+        >
+          <CardContent className="flex items-center gap-3 py-3 text-sm text-amber-700 dark:text-amber-400">
+            <span className="flex-1">
+              你已经 {inactivity.inactive_days}{' '}
+              天没有学习了。要把剩余计划重排到今天起、并把高风险薄弱卡片提到今天吗?
+            </span>
+            <Button size="sm" onClick={() => resettle.mutate()} disabled={resettle.isPending}>
+              {resettle.isPending ? '回炉中…' : '回炉重排'}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* 今日任务列表 */}

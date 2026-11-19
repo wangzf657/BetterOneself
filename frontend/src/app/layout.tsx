@@ -46,6 +46,13 @@ export function RootLayout() {
             </span>
           )}
         </Link>
+        <Link
+          to="/settings"
+          className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent/50"
+          data-testid="settings-entry"
+        >
+          设置
+        </Link>
       </header>
       <Outlet />
     </div>
