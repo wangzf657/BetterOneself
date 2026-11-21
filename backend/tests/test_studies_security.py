@@ -25,6 +25,41 @@ def test_create_idempotent_same_key(db) -> None:
     assert a.id == b.id  # 同 key 返回同一 study（P1-05）
 
 
+def test_create_idempotent_concurrent_same_key(db) -> None:
+    """BUG-003 回归（并发面）：并发同键请求只建一本书，输者幂等命中。"""
+    import threading
+
+    from app.core.db import get_session_local
+
+    results: list[tuple[int, bool] | Exception] = []
+    barrier = threading.Barrier(3)
+
+    def worker() -> None:
+        session = get_session_local()()
+        try:
+            barrier.wait()
+            study, created = studies.create_study(
+                session, name="并发书", filename="c.txt", content=BOOK.encode(),
+                idempotency_key="kc",
+            )
+            results.append((study.id, created))
+        except Exception as e:  # 胜负结果都要收集
+            results.append(e)
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=worker) for _ in range(3)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    ids = {r[0] for r in results if isinstance(r, tuple)}
+    assert len(ids) == 1, f"并发同键应只建一本，实际 {ids}; errors={results}"
+    rows = db.query(Study).filter_by(name="并发书").all()
+    assert len(rows) == 1
+
+
 def test_create_rejects_bad_files(db) -> None:
     with pytest.raises(UnsupportedMedia):
         studies.create_study(db, name="x", filename="a.docx", content=b"MZ....", idempotency_key=None)
@@ -103,3 +138,13 @@ def test_usage_written_per_scene(db) -> None:
     rows = app_settings.usage_between(db, None, None)
     row = next(r for r in rows if r["scene"] == "tutor")
     assert row["requests"] == 2 and row["prompt_tokens"] == 130
+
+
+async def test_stub_complete_records_usage(db) -> None:
+    """BUG-002 回归：桩模式 complete()（outline/quiz 场景）也要入账。"""
+    from app.core.llm import complete
+
+    await complete(db, [{"role": "user", "content": "hi"}], scene="outline")
+    await complete(db, [{"role": "user", "content": "hi"}], scene="quiz")
+    rows = {(r["scene"], r["requests"]) for r in app_settings.usage_between(db, None, None)}
+    assert ("outline", 1) in rows and ("quiz", 1) in rows

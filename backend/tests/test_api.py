@@ -163,6 +163,49 @@ def test_settings_and_usage_endpoints() -> None:
         assert c.get("/api/usage").json() == []
 
 
+def test_settings_partial_update_keeps_other_fields() -> None:
+    """BUG-001 回归：部分保存不得清空未提交字段（P1-06 三语义）。"""
+    with _client() as c:
+        # 全量配置
+        r = c.put(
+            "/api/settings",
+            json={"llm": {"base_url": "https://x.example/v1", "model": "m1", "api_key": "sk-QAtest1234567890"}},
+        )
+        assert r.status_code == 200
+        got = r.json()["llm"]
+        assert got["base_url"] == "https://x.example/v1" and got["model"] == "m1"
+        assert got["api_key"] and got["api_key"].startswith("sk-****")
+
+        # 只改 base_url → model 与密钥保持不变
+        r = c.put("/api/settings", json={"llm": {"base_url": "https://x.example/v2"}})
+        assert r.status_code == 200
+        got = r.json()["llm"]
+        assert got["base_url"] == "https://x.example/v2"
+        assert got["model"] == "m1"
+        assert got["api_key"] and got["api_key"].startswith("sk-****")
+
+        # 只换密钥 → 地址与模型保持不变
+        r = c.put("/api/settings", json={"llm": {"api_key": "sk-QAnew9998765432"}})
+        assert r.status_code == 200
+        got = r.json()["llm"]
+        assert got["base_url"] == "https://x.example/v2" and got["model"] == "m1"
+        assert got["api_key"].endswith("432") and got["api_key"].startswith("sk-****")
+
+        # 提交掩码 → 按"未修改"处理，不回写、不清除
+        r = c.put("/api/settings", json={"llm": {"model": "m2", "api_key": got["api_key"]}})
+        assert r.status_code == 200
+        got = r.json()["llm"]
+        assert got["model"] == "m2"
+        assert got["api_key"].endswith("432") and got["api_key"].startswith("sk-****")
+
+        # 显式置 null → 清除（仅清该字段）
+        r = c.put("/api/settings", json={"llm": {"api_key": None}})
+        assert r.status_code == 200
+        got = r.json()["llm"]
+        assert got["api_key"] is None
+        assert got["base_url"] == "https://x.example/v2" and got["model"] == "m2"
+
+
 def test_origin_guard() -> None:
     with _client() as c:
         r = c.get("/api/studies", headers={"Origin": "http://evil.example"})

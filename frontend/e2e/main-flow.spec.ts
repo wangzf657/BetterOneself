@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { answerQuiz, createBook, expectLighted, openFirstUnit } from "./helpers";
+import { answerQuiz, bookFile, createBook, expectLighted, openFirstUnit } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 
@@ -158,4 +158,20 @@ test("笔记自动保存，刷新不丢", async ({ page }) => {
   await expect(page.getByText("过滤不是越多越好", { exact: false }).first()).toBeVisible({
     timeout: 20_000,
   });
+});
+
+test("双击导入不重复建书（BUG-003 / B1-01 反例）", async ({ page }) => {
+  const name = `E2E双击 ${Date.now()}`;
+  await page.goto("/studies/new");
+  await page.fill("#book-name", name);
+  await page.setInputFiles('input[type="file"]', bookFile());
+  await page.getByRole("button", { name: "导入并查看技能树" }).dblclick();
+
+  // 等基础目录可用（与 createBook 相同的完成信号）
+  const viewBtn = page.getByRole("button", { name: "查看技能树 →", exact: true });
+  await expect(viewBtn).toBeVisible({ timeout: 60_000 });
+
+  // 书架上同名卡片只有一张
+  await page.goto("/studies");
+  await expect(page.locator("span.truncate.font-semibold", { hasText: name })).toHaveCount(1);
 });

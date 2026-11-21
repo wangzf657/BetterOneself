@@ -57,7 +57,9 @@ export default function DetailPanel({
     enabled: node.is_learning_unit,
   });
 
-  const isContainer = !node.is_learning_unit;
+  // 排除的叶子节点本是学习单元（排除使其 is_learning_unit 置 false），不能渲染成"容器"（BUG-005）
+  const wasLearningUnit = node.excluded && (node.children?.length ?? 0) === 0;
+  const isContainer = !node.is_learning_unit && !wasLearningUnit;
   return (
     <aside className="fixed right-8 top-32 z-20 w-80 rounded-lg border bg-white p-5 shadow-lg">
       <button className="absolute right-3 top-3 text-ink-soft hover:text-ink" onClick={onClose}>
@@ -76,6 +78,8 @@ export default function DetailPanel({
           <Badge>
             容器 · {node.lighted_count ?? 0} / {node.valid_total ?? 0} 点亮
           </Badge>
+        ) : wasLearningUnit ? (
+          <Badge tone={node.lighted_at ? "gold" : "default"}>学习单元（已排除）</Badge>
         ) : node.status ? (
           <Badge tone={node.status === "lighted" ? "gold" : node.status === "learning" ? "blue" : "default"}>
             {STATUS_LABEL[node.status]}

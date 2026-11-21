@@ -15,6 +15,10 @@ export default function NewStudyPage() {
   const [file, setFile] = useState<File | null>(null);
   const [studyId, setStudyId] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 幂等键进页生成一次（P1-05）：双击/重试共用同键，后端按键去重
+  const idemKeyRef = useRef(`ui-${crypto.randomUUID()}`);
+  // 同步提交标志：React 状态更新前双击的第二击直接返回（BUG-003）
+  const submittingRef = useRef(false);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -24,7 +28,7 @@ export default function NewStudyPage() {
       const res = await client.POST("/api/studies", {
         // openapi-fetch 的 multipart 类型由运行时 FormData 承担
         body: fd as unknown as { name: string; file: string },
-        headers: { "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Idempotency-Key": idemKeyRef.current },
       });
       if (res.error) throw new Error(await errDetail(res));
       return res.data;
@@ -33,16 +37,21 @@ export default function NewStudyPage() {
       setStudyId(study.id);
       toast.success("文件已保存，正在解析正文与目录");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      submittingRef.current = false; // 失败允许重试
+      toast.error(e.message);
+    },
   });
 
   const submit = () => {
+    if (submittingRef.current || create.isPending) return;
     if (!name.trim()) return toast.error("请填写书名");
     if (!file) return toast.error("请选择主文件（EPUB / TXT / PDF / Markdown）");
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
     if (!["pdf", "epub", "txt", "md", "markdown"].includes(ext))
       return toast.error(`不支持的格式 .${ext}：仅支持 EPUB、TXT、PDF、Markdown`);
-    if (!create.isPending) create.mutate();
+    submittingRef.current = true;
+    create.mutate();
   };
 
   const onPick = useCallback(

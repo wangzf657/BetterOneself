@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 from sqlalchemy import text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_config
@@ -82,6 +83,18 @@ def create_study(
         if idempotency_key:
             db.add(Setting(key=f"idem.{idempotency_key}", value=str(study.id)))
         db.commit()
+    except IntegrityError:
+        # 并发同键竞态：幂等记录主键冲突 → 回滚后按键返回已有书，仍算幂等命中
+        db.rollback()
+        temp_path.unlink(missing_ok=True)
+        if idempotency_key:
+            db.expire_all()
+            row = db.get(Setting, f"idem.{idempotency_key}")
+            if row is not None:
+                study = db.get(Study, int(row.value or 0))
+                if study is not None:
+                    return study, False
+        raise
     except Exception:
         db.rollback()
         temp_path.unlink(missing_ok=True)

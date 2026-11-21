@@ -19,7 +19,9 @@ def get_settings(db: Session = Depends(get_db)) -> dict[str, object]:
 
 @router.put("/settings", response_model=SettingsPayload)
 def put_settings(body: SettingsPut, db: Session = Depends(get_db)) -> dict[str, object]:
-    return app_settings.put_settings(db, body.model_dump(exclude_none=False))
+    # exclude_unset：请求中未出现的字段保持 absent，"缺省 → 不变"语义才能在 HTTP 层成立
+    # （显式 null 仍保留 → 清除；见接口设计 P1-06 三语义）
+    return app_settings.put_settings(db, body.model_dump(exclude_none=False, exclude_unset=True))
 
 
 @router.get("/usage", response_model=list[UsageRow])

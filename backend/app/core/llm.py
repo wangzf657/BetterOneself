@@ -112,7 +112,9 @@ async def complete(
 ) -> str:
     """非流式补全（outline_planner / quiz / 简答评语）。"""
     if get_config().llm_stub:
-        return stub_llm.complete(messages, scene=scene)
+        result = stub_llm.complete(messages, scene=scene)
+        record_usage(db, scene, 0, 0)  # 桩同样入账，用量口径在开发模式也完整（BUG-002）
+        return result
 
     cfg = load_llm_config(db)
     try:

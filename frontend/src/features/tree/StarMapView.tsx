@@ -40,19 +40,23 @@ interface StarGroup {
 }
 
 function buildGroups(roots: KnowledgeNode[]): StarGroup[] {
-  const groups: StarGroup[] = [];
-  const loose: KnowledgeNode[] = [];
+  // 按书序原位排布（BUG-004）：散章在书中的位置决定其分区位置，部分组不前移
+  const out: StarGroup[] = [];
+  let loose: KnowledgeNode[] = [];
+  const flush = () => {
+    if (loose.length) out.push({ key: `loose-${loose[0].id}`, name: null, chapters: loose });
+    loose = [];
+  };
   for (const root of roots) {
     const childChapters = (root.children ?? []).filter((c) => c.is_chapter);
     if (root.origin === "ai_group" && childChapters.length) {
-      groups.push({ key: `g${root.id}`, name: root.name, chapters: childChapters });
+      flush();
+      out.push({ key: `g${root.id}`, name: root.name, chapters: childChapters });
     } else if (root.is_chapter) {
       loose.push(root);
     }
   }
-  const out: StarGroup[] = [];
-  if (loose.length) out.push({ key: "loose", name: null, chapters: loose });
-  out.push(...groups);
+  flush();
   return out;
 }
 

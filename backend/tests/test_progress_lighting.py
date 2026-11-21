@@ -90,6 +90,31 @@ async def test_pass_line_mapping_and_lighting(book) -> None:
     assert result["lighted"]["already_lighted"] is False
 
 
+async def test_answer_quiz_records_usage_without_lock_stall(book) -> None:
+    """BUG-002 + 锁停滞回归：判分路径的桩用量入账，且不被请求自身写锁阻塞 5s。"""
+    import time as _time
+
+    from app.services import app_settings
+
+    db = book
+    kp = _kp_by_name(db, "1.1 什么是 Agent")
+    session = get_or_create_session(db, get_study(db).id, kp.id)
+    q = await quiz_service.generate_quiz(db, session)
+    answers = [
+        {"no": 1, "choice": "B"}, {"no": 2, "choice": "C"},
+        {"no": 3, "choice": False}, {"no": 4, "choice": False},
+        {"no": 5, "text": "答了练习"},
+    ]
+    t0 = _time.monotonic()
+    result = await quiz_service.answer_quiz(db, q["quiz_id"], answers)
+    elapsed = _time.monotonic() - t0
+    assert result["passed"] is True
+    assert elapsed < 3, f"判分响应被用量写入阻塞 {elapsed:.1f}s（SQLite busy timeout）"
+    # 出题 + 简答评语两次 complete() 均入账（stub 模式用量口径完整）
+    rows = {(r["scene"], r["requests"]) for r in app_settings.usage_between(db, None, None)}
+    assert sum(n for s, n in rows if s == "quiz") >= 2
+
+
 async def test_relight_not_triggered_by_failed_requiz(book) -> None:
     """已点亮后重考失败：原有点亮保留（B4-03 反例）。"""
     db = book

@@ -315,26 +315,12 @@ def _chunk_refs(db: Session, chunk_ids: list[int]) -> list[dict[str, Any]]:
 
 
 async def answer_quiz(db: Session, quiz_id: int, answers: list[dict[str, Any]]) -> dict[str, Any]:
-    """整组提交：条件更新原子认领；代码判定；判分与点亮同事务（P1-03、决策 #30）。"""
+    """整组提交：内存判分与评语先行（LLM 期间不持写锁，用量短事务不被阻塞），
+    条件更新原子认领，判分与点亮同一事务提交（P1-03、B4-03、决策 #30）。"""
     from app.skills.quiz import comment_short_answer
 
     quiz = _quiz_or_404(db, quiz_id)
     if quiz.answered_at is not None:
-        return _answered_with_lighted(db, quiz, already=True)
-
-    from sqlalchemy.engine import CursorResult
-
-    claimed = cast(
-        CursorResult[Any],
-        db.execute(
-            update(Quiz)
-            .where(Quiz.id == quiz_id, Quiz.answered_at.is_(None))
-            .values(answered_at=utcnow())
-        ),
-    ).rowcount
-    if not claimed:
-        db.rollback()
-        quiz = _quiz_or_404(db, quiz_id)
         return _answered_with_lighted(db, quiz, already=True)
 
     questions = json.loads(quiz.questions_json)["questions"]
@@ -410,6 +396,23 @@ async def answer_quiz(db: Session, quiz_id: int, answers: list[dict[str, Any]]) 
         per_question.append(entry)
 
     passed = correct_count >= quiz.pass_line
+
+    # 条件更新原子认领：并发双交只有一方判分生效（P1-03）；败方回读已有结果
+    from sqlalchemy.engine import CursorResult
+
+    claimed = cast(
+        CursorResult[Any],
+        db.execute(
+            update(Quiz)
+            .where(Quiz.id == quiz_id, Quiz.answered_at.is_(None))
+            .values(answered_at=utcnow())
+        ),
+    ).rowcount
+    if not claimed:
+        db.rollback()
+        quiz = _quiz_or_404(db, quiz_id)
+        return _answered_with_lighted(db, quiz, already=True)
+
     quiz.submitted_answers_json = json.dumps(submitted, ensure_ascii=False)
     quiz.grading_results_json = json.dumps(per_question, ensure_ascii=False)
     quiz.correct_count = correct_count
