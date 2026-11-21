@@ -1,0 +1,3436 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "BetterOneself",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/api/studies": {
+   "post": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "Create Study",
+    "operationId": "create_study_api_studies_post",
+    "parameters": [
+     {
+      "name": "Idempotency-Key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Idempotency-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_create_study_api_studies_post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StudyDetail"
+        }
+       }
+      }
+     },
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StudyDetail"
+        }
+       }
+      },
+      "description": "OK"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "List Studies",
+    "operationId": "list_studies_api_studies_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/StudyItem"
+         },
+         "title": "Response List Studies Api Studies Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}": {
+   "get": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "Get Study",
+    "operationId": "get_study_api_studies__study_id__get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StudyDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "patch": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "Patch Study",
+    "operationId": "patch_study_api_studies__study_id__patch",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StudyPatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StudyDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "Delete Study",
+    "operationId": "delete_study_api_studies__study_id__delete",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/delete-impact": {
+   "get": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "Delete Impact",
+    "operationId": "delete_impact_api_studies__study_id__delete_impact_get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DeleteImpact"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/source/replace": {
+   "post": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "Replace Source",
+    "operationId": "replace_source_api_studies__study_id__source_replace_post",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_replace_source_api_studies__study_id__source_replace_post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StudyDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/progress": {
+   "get": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "Study Progress",
+    "operationId": "study_progress_api_studies__study_id__progress_get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PipelineProgress"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sources/{source_id}/reparse": {
+   "post": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Reparse Source",
+    "operationId": "reparse_source_api_sources__source_id__reparse_post",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Source Id"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Reparse Source Api Sources  Source Id  Reparse Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sources/{source_id}/reembed": {
+   "post": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Reembed Source",
+    "operationId": "reembed_source_api_sources__source_id__reembed_post",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Source Id"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Reembed Source Api Sources  Source Id  Reembed Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/knowledge": {
+   "get": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Knowledge Tree",
+    "operationId": "knowledge_tree_api_studies__study_id__knowledge_get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/KnowledgeTree"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/outline-status": {
+   "get": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Outline Status",
+    "operationId": "outline_status_api_studies__study_id__outline_status_get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OutlineStatus"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/outline/replan": {
+   "post": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Outline Replan",
+    "operationId": "outline_replan_api_studies__study_id__outline_replan_post",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Outline Replan Api Studies  Study Id  Outline Replan Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/outline/events": {
+   "get": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Outline Events",
+    "operationId": "outline_events_api_studies__study_id__outline_events_get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 50,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/OutlineEventItem"
+         },
+         "title": "Response Outline Events Api Studies  Study Id  Outline Events Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/outline/restore-preview": {
+   "get": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Restore Preview",
+    "operationId": "restore_preview_api_studies__study_id__outline_restore_preview_get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RestorePreview"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/outline/restore-original": {
+   "post": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Restore Original",
+    "operationId": "restore_original_api_studies__study_id__outline_restore_original_post",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RestoreResult"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}/exclude-impact": {
+   "get": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Exclude Impact",
+    "operationId": "exclude_impact_api_kps__kp_id__exclude_impact_get",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ExcludeImpact"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}": {
+   "patch": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Rename Kp",
+    "operationId": "rename_kp_api_kps__kp_id__patch",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RenameBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/KnowledgeNode"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}/exclude": {
+   "post": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Exclude Kp",
+    "operationId": "exclude_kp_api_kps__kp_id__exclude_post",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExcludeBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/KpMutationResult"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}/restore": {
+   "post": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Restore Kp",
+    "operationId": "restore_kp_api_kps__kp_id__restore_post",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/KpMutationResult"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}/dissolve-group": {
+   "post": {
+    "tags": [
+     "knowledge"
+    ],
+    "summary": "Dissolve Group",
+    "operationId": "dissolve_group_api_kps__kp_id__dissolve_group_post",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/KpMutationResult"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/sessions": {
+   "post": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Create Session",
+    "operationId": "create_session_api_studies__study_id__sessions_post",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SessionCreate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SessionDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/{session_id}": {
+   "get": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Get Session",
+    "operationId": "get_session_api_sessions__session_id__get",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SessionDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/{session_id}/opening": {
+   "post": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Session Opening",
+    "operationId": "session_opening_api_sessions__session_id__opening_post",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/{session_id}/chat": {
+   "post": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Session Chat",
+    "operationId": "session_chat_api_sessions__session_id__chat_post",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChatBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/{session_id}/scheme": {
+   "patch": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Patch Scheme",
+    "operationId": "patch_scheme_api_sessions__session_id__scheme_patch",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SchemePatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SessionDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sessions/{session_id}/quizzes": {
+   "post": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Create Quiz",
+    "operationId": "create_quiz_api_sessions__session_id__quizzes_post",
+    "parameters": [
+     {
+      "name": "session_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Session Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/QuizPublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/quizzes/{quiz_id}/answer": {
+   "post": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Answer Quiz",
+    "operationId": "answer_quiz_api_quizzes__quiz_id__answer_post",
+    "parameters": [
+     {
+      "name": "quiz_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Quiz Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/QuizAnswerBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true,
+         "title": "Response Answer Quiz Api Quizzes  Quiz Id  Answer Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}/quizzes": {
+   "get": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Kp Quizzes",
+    "operationId": "kp_quizzes_api_kps__kp_id__quizzes_get",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": true
+         },
+         "title": "Response Kp Quizzes Api Kps  Kp Id  Quizzes Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}/content": {
+   "get": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Kp Content",
+    "operationId": "kp_content_api_kps__kp_id__content_get",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NodeContent"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/chunks/{chunk_id}": {
+   "get": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Get Chunk",
+    "operationId": "get_chunk_api_chunks__chunk_id__get",
+    "parameters": [
+     {
+      "name": "chunk_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Chunk Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChunkDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}/note": {
+   "get": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Get Note",
+    "operationId": "get_note_api_kps__kp_id__note_get",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NotePayload"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Put Note",
+    "operationId": "put_note_api_kps__kp_id__note_put",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NotePut"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NotePayload"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/kps/{kp_id}/lighting-evidence": {
+   "get": {
+    "tags": [
+     "learning"
+    ],
+    "summary": "Lighting Evidence",
+    "operationId": "lighting_evidence_api_kps__kp_id__lighting_evidence_get",
+    "parameters": [
+     {
+      "name": "kp_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Kp Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true,
+         "title": "Response Lighting Evidence Api Kps  Kp Id  Lighting Evidence Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/settings": {
+   "get": {
+    "tags": [
+     "settings"
+    ],
+    "summary": "Get Settings",
+    "operationId": "get_settings_api_settings_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SettingsPayload"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "settings"
+    ],
+    "summary": "Put Settings",
+    "operationId": "put_settings_api_settings_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SettingsPut"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SettingsPayload"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/usage": {
+   "get": {
+    "tags": [
+     "settings"
+    ],
+    "summary": "Usage",
+    "operationId": "usage_api_usage_get",
+    "parameters": [
+     {
+      "name": "from",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "From"
+      }
+     },
+     {
+      "name": "to",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "To"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/UsageRow"
+         },
+         "title": "Response Usage Api Usage Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "AdjustSummary": {
+    "properties": {
+     "parts": {
+      "type": "integer",
+      "title": "Parts"
+     },
+     "excluded": {
+      "type": "integer",
+      "title": "Excluded"
+     },
+     "split": {
+      "type": "integer",
+      "title": "Split"
+     },
+     "merged": {
+      "type": "integer",
+      "title": "Merged"
+     },
+     "organized": {
+      "type": "integer",
+      "title": "Organized"
+     },
+     "applied": {
+      "type": "integer",
+      "title": "Applied"
+     },
+     "skipped": {
+      "type": "integer",
+      "title": "Skipped"
+     },
+     "planned": {
+      "type": "integer",
+      "title": "Planned"
+     }
+    },
+    "type": "object",
+    "required": [
+     "parts",
+     "excluded",
+     "split",
+     "merged",
+     "organized",
+     "applied",
+     "skipped",
+     "planned"
+    ],
+    "title": "AdjustSummary"
+   },
+   "Body_create_study_api_studies_post": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "file": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream",
+      "title": "File"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "file"
+    ],
+    "title": "Body_create_study_api_studies_post"
+   },
+   "Body_replace_source_api_studies__study_id__source_replace_post": {
+    "properties": {
+     "file": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream",
+      "title": "File"
+     }
+    },
+    "type": "object",
+    "required": [
+     "file"
+    ],
+    "title": "Body_replace_source_api_studies__study_id__source_replace_post"
+   },
+   "ChatBody": {
+    "properties": {
+     "content": {
+      "type": "string",
+      "title": "Content"
+     }
+    },
+    "type": "object",
+    "required": [
+     "content"
+    ],
+    "title": "ChatBody"
+   },
+   "ChunkDetail": {
+    "properties": {
+     "chunk": {
+      "$ref": "#/components/schemas/ChunkPayload"
+     },
+     "source_id": {
+      "type": "integer",
+      "title": "Source Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "chunk",
+     "source_id"
+    ],
+    "title": "ChunkDetail"
+   },
+   "ChunkPayload": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "content": {
+      "type": "string",
+      "title": "Content"
+     },
+     "location": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Location"
+     },
+     "level_path": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Level Path"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "content",
+     "location"
+    ],
+    "title": "ChunkPayload"
+   },
+   "DeleteImpact": {
+    "properties": {
+     "sessions": {
+      "type": "integer",
+      "title": "Sessions"
+     },
+     "quizzes": {
+      "type": "integer",
+      "title": "Quizzes"
+     },
+     "lighted": {
+      "type": "integer",
+      "title": "Lighted"
+     },
+     "notes": {
+      "type": "integer",
+      "title": "Notes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "sessions",
+     "quizzes",
+     "lighted",
+     "notes"
+    ],
+    "title": "DeleteImpact"
+   },
+   "EmbedSettings": {
+    "properties": {
+     "base_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Url"
+     },
+     "model": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Model"
+     },
+     "api_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Api Key"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "type": "object",
+    "title": "EmbedSettings"
+   },
+   "ExcludeBody": {
+    "properties": {
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     }
+    },
+    "type": "object",
+    "title": "ExcludeBody"
+   },
+   "ExcludeImpact": {
+    "properties": {
+     "kp_id": {
+      "type": "integer",
+      "title": "Kp Id"
+     },
+     "kp_name": {
+      "type": "string",
+      "title": "Kp Name"
+     },
+     "lighted_affected": {
+      "type": "integer",
+      "title": "Lighted Affected"
+     },
+     "progress_before": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProgressInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "progress_after": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProgressInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "kp_id",
+     "kp_name",
+     "lighted_affected"
+    ],
+    "title": "ExcludeImpact"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "KnowledgeNode": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "sort_order": {
+      "type": "integer",
+      "title": "Sort Order"
+     },
+     "parent_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent Id"
+     },
+     "is_chapter": {
+      "type": "boolean",
+      "title": "Is Chapter"
+     },
+     "is_learning_unit": {
+      "type": "boolean",
+      "title": "Is Learning Unit"
+     },
+     "origin": {
+      "type": "string",
+      "title": "Origin"
+     },
+     "confidence": {
+      "type": "number",
+      "title": "Confidence"
+     },
+     "confidence_basis": {
+      "type": "string",
+      "title": "Confidence Basis"
+     },
+     "planning_note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Planning Note"
+     },
+     "excluded": {
+      "type": "boolean",
+      "title": "Excluded"
+     },
+     "exclusion_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Exclusion Reason"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "unlearned",
+         "learning",
+         "lighted"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
+     },
+     "lighted_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lighted At"
+     },
+     "lighted_by_quiz_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lighted By Quiz Id"
+     },
+     "lighted_count": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lighted Count"
+     },
+     "valid_total": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Valid Total"
+     },
+     "recent_quiz": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RecentQuiz"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "children": {
+      "items": {
+       "$ref": "#/components/schemas/KnowledgeNode"
+      },
+      "type": "array",
+      "title": "Children"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "sort_order",
+     "is_chapter",
+     "is_learning_unit",
+     "origin",
+     "confidence",
+     "confidence_basis",
+     "excluded"
+    ],
+    "title": "KnowledgeNode"
+   },
+   "KnowledgeTree": {
+    "properties": {
+     "study_id": {
+      "type": "integer",
+      "title": "Study Id"
+     },
+     "progress": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProgressInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "nodes": {
+      "items": {
+       "$ref": "#/components/schemas/KnowledgeNode"
+      },
+      "type": "array",
+      "title": "Nodes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "study_id",
+     "nodes"
+    ],
+    "title": "KnowledgeTree"
+   },
+   "KpMutationResult": {
+    "properties": {
+     "kp": {
+      "$ref": "#/components/schemas/KnowledgeNode"
+     },
+     "progress_before": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProgressInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "progress_after": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProgressInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "kp"
+    ],
+    "title": "KpMutationResult"
+   },
+   "LastKp": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name"
+    ],
+    "title": "LastKp"
+   },
+   "MessageItem": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "role": {
+      "type": "string",
+      "title": "Role"
+     },
+     "content": {
+      "type": "string",
+      "title": "Content"
+     },
+     "refs": {
+      "items": {
+       "$ref": "#/components/schemas/MessageRef"
+      },
+      "type": "array",
+      "title": "Refs"
+     },
+     "stopped": {
+      "type": "boolean",
+      "title": "Stopped",
+      "default": false
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "role",
+     "content",
+     "created_at"
+    ],
+    "title": "MessageItem"
+   },
+   "MessageRef": {
+    "properties": {
+     "no": {
+      "type": "integer",
+      "title": "No"
+     },
+     "chunk_id": {
+      "type": "integer",
+      "title": "Chunk Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "location": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Location"
+     },
+     "quote": {
+      "type": "string",
+      "title": "Quote"
+     }
+    },
+    "type": "object",
+    "required": [
+     "no",
+     "chunk_id",
+     "title",
+     "location",
+     "quote"
+    ],
+    "title": "MessageRef"
+   },
+   "NodeContent": {
+    "properties": {
+     "kp_id": {
+      "type": "integer",
+      "title": "Kp Id"
+     },
+     "kp_name": {
+      "type": "string",
+      "title": "Kp Name"
+     },
+     "chunks": {
+      "items": {
+       "$ref": "#/components/schemas/ChunkPayload"
+      },
+      "type": "array",
+      "title": "Chunks"
+     }
+    },
+    "type": "object",
+    "required": [
+     "kp_id",
+     "kp_name",
+     "chunks"
+    ],
+    "title": "NodeContent"
+   },
+   "NotePayload": {
+    "properties": {
+     "kp_id": {
+      "type": "integer",
+      "title": "Kp Id"
+     },
+     "content_md": {
+      "type": "string",
+      "title": "Content Md"
+     },
+     "updated_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "kp_id",
+     "content_md"
+    ],
+    "title": "NotePayload"
+   },
+   "NotePut": {
+    "properties": {
+     "content_md": {
+      "type": "string",
+      "title": "Content Md"
+     }
+    },
+    "type": "object",
+    "required": [
+     "content_md"
+    ],
+    "title": "NotePut"
+   },
+   "OutlineEventItem": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "event_type": {
+      "type": "string",
+      "title": "Event Type"
+     },
+     "actor": {
+      "type": "string",
+      "title": "Actor"
+     },
+     "kp_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kp Id"
+     },
+     "kp_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kp Name"
+     },
+     "detail": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Detail"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "event_type",
+     "actor",
+     "created_at"
+    ],
+    "title": "OutlineEventItem"
+   },
+   "OutlineStatus": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "thesis": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Thesis"
+     },
+     "adjust_summary": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AdjustSummary"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "low_confidence_count": {
+      "type": "integer",
+      "title": "Low Confidence Count"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "low_confidence_count"
+    ],
+    "title": "OutlineStatus"
+   },
+   "PhaseEmbedding": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "done": {
+      "type": "integer",
+      "title": "Done"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "done",
+     "total"
+    ],
+    "title": "PhaseEmbedding"
+   },
+   "PhaseOutline": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "thesis": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Thesis"
+     },
+     "adjust_summary": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "integer"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Adjust Summary"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status"
+    ],
+    "title": "PhaseOutline"
+   },
+   "PhaseParse": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status"
+    ],
+    "title": "PhaseParse"
+   },
+   "PipelineProgress": {
+    "properties": {
+     "parse": {
+      "$ref": "#/components/schemas/PhaseParse"
+     },
+     "outline": {
+      "$ref": "#/components/schemas/PhaseOutline"
+     },
+     "embedding": {
+      "$ref": "#/components/schemas/PhaseEmbedding"
+     }
+    },
+    "type": "object",
+    "required": [
+     "parse",
+     "outline",
+     "embedding"
+    ],
+    "title": "PipelineProgress"
+   },
+   "ProgressInfo": {
+    "properties": {
+     "lighted": {
+      "type": "integer",
+      "title": "Lighted"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     },
+     "percent": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Percent"
+     }
+    },
+    "type": "object",
+    "required": [
+     "lighted",
+     "total"
+    ],
+    "title": "ProgressInfo"
+   },
+   "QuizAnswerBody": {
+    "properties": {
+     "answers": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Answers"
+     }
+    },
+    "type": "object",
+    "required": [
+     "answers"
+    ],
+    "title": "QuizAnswerBody"
+   },
+   "QuizPublic": {
+    "properties": {
+     "quiz_id": {
+      "type": "integer",
+      "title": "Quiz Id"
+     },
+     "session_id": {
+      "type": "integer",
+      "title": "Session Id"
+     },
+     "kp_id": {
+      "type": "integer",
+      "title": "Kp Id"
+     },
+     "created_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Created At"
+     },
+     "question_count": {
+      "type": "integer",
+      "title": "Question Count"
+     },
+     "graded_count": {
+      "type": "integer",
+      "title": "Graded Count"
+     },
+     "practice_count": {
+      "type": "integer",
+      "title": "Practice Count"
+     },
+     "pass_line": {
+      "type": "integer",
+      "title": "Pass Line"
+     },
+     "answered_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Answered At"
+     },
+     "questions": {
+      "items": {
+       "$ref": "#/components/schemas/QuizQuestionPublic"
+      },
+      "type": "array",
+      "title": "Questions"
+     },
+     "coverage": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Coverage"
+     }
+    },
+    "type": "object",
+    "required": [
+     "quiz_id",
+     "session_id",
+     "kp_id",
+     "question_count",
+     "graded_count",
+     "practice_count",
+     "pass_line",
+     "questions"
+    ],
+    "title": "QuizPublic"
+   },
+   "QuizQuestionPublic": {
+    "properties": {
+     "no": {
+      "type": "integer",
+      "title": "No"
+     },
+     "type": {
+      "type": "string",
+      "title": "Type"
+     },
+     "graded": {
+      "type": "boolean",
+      "title": "Graded"
+     },
+     "stem": {
+      "type": "string",
+      "title": "Stem"
+     },
+     "options": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Options"
+     }
+    },
+    "type": "object",
+    "required": [
+     "no",
+     "type",
+     "graded",
+     "stem"
+    ],
+    "title": "QuizQuestionPublic"
+   },
+   "RecentQuiz": {
+    "properties": {
+     "quiz_id": {
+      "type": "integer",
+      "title": "Quiz Id"
+     },
+     "passed": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Passed"
+     },
+     "correct_count": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Correct Count"
+     },
+     "pass_line": {
+      "type": "integer",
+      "title": "Pass Line"
+     },
+     "answered_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Answered At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "quiz_id",
+     "pass_line"
+    ],
+    "title": "RecentQuiz"
+   },
+   "RenameBody": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "RenameBody"
+   },
+   "RestorePreview": {
+    "properties": {
+     "can_restore": {
+      "type": "boolean",
+      "title": "Can Restore"
+     },
+     "planning_running": {
+      "type": "boolean",
+      "title": "Planning Running"
+     },
+     "evidence_kps": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Evidence Kps"
+     },
+     "ai_adjustments": {
+      "type": "integer",
+      "title": "Ai Adjustments"
+     },
+     "revoked_renames": {
+      "type": "integer",
+      "title": "Revoked Renames"
+     },
+     "revoked_exclusions": {
+      "type": "integer",
+      "title": "Revoked Exclusions"
+     }
+    },
+    "type": "object",
+    "required": [
+     "can_restore",
+     "planning_running",
+     "evidence_kps",
+     "ai_adjustments",
+     "revoked_renames",
+     "revoked_exclusions"
+    ],
+    "title": "RestorePreview"
+   },
+   "RestoreResult": {
+    "properties": {
+     "removed": {
+      "type": "integer",
+      "title": "Removed"
+     },
+     "restored": {
+      "type": "integer",
+      "title": "Restored"
+     },
+     "ai_adjustments": {
+      "type": "integer",
+      "title": "Ai Adjustments",
+      "default": 0
+     },
+     "revoked_renames": {
+      "type": "integer",
+      "title": "Revoked Renames"
+     },
+     "revoked_exclusions": {
+      "type": "integer",
+      "title": "Revoked Exclusions"
+     },
+     "progress_before": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProgressInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "progress_after": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProgressInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "removed",
+     "restored",
+     "revoked_renames",
+     "revoked_exclusions"
+    ],
+    "title": "RestoreResult"
+   },
+   "SchemePatch": {
+    "properties": {
+     "scheme": {
+      "type": "string",
+      "enum": [
+       "guided",
+       "lecture",
+       "drill"
+      ],
+      "title": "Scheme"
+     }
+    },
+    "type": "object",
+    "required": [
+     "scheme"
+    ],
+    "title": "SchemePatch"
+   },
+   "SessionCreate": {
+    "properties": {
+     "kp_id": {
+      "type": "integer",
+      "title": "Kp Id"
+     },
+     "scheme": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "guided",
+         "lecture",
+         "drill"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scheme"
+     }
+    },
+    "type": "object",
+    "required": [
+     "kp_id"
+    ],
+    "title": "SessionCreate"
+   },
+   "SessionDetail": {
+    "properties": {
+     "session": {
+      "$ref": "#/components/schemas/SessionInfo"
+     },
+     "messages": {
+      "items": {
+       "$ref": "#/components/schemas/MessageItem"
+      },
+      "type": "array",
+      "title": "Messages"
+     },
+     "quizzes": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Quizzes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "session",
+     "messages",
+     "quizzes"
+    ],
+    "title": "SessionDetail"
+   },
+   "SessionInfo": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "study_id": {
+      "type": "integer",
+      "title": "Study Id"
+     },
+     "kp_id": {
+      "type": "integer",
+      "title": "Kp Id"
+     },
+     "kp_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kp Name"
+     },
+     "kp_path": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Kp Path"
+     },
+     "scheme": {
+      "type": "string",
+      "title": "Scheme"
+     },
+     "excluded": {
+      "type": "boolean",
+      "title": "Excluded"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "study_id",
+     "kp_id",
+     "scheme",
+     "excluded"
+    ],
+    "title": "SessionInfo"
+   },
+   "SettingsGroup": {
+    "properties": {
+     "base_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Url"
+     },
+     "model": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Model"
+     },
+     "api_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Api Key"
+     }
+    },
+    "type": "object",
+    "title": "SettingsGroup"
+   },
+   "SettingsPayload": {
+    "properties": {
+     "llm": {
+      "$ref": "#/components/schemas/SettingsGroup"
+     },
+     "embed": {
+      "$ref": "#/components/schemas/EmbedSettings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "llm",
+     "embed"
+    ],
+    "title": "SettingsPayload"
+   },
+   "SettingsPut": {
+    "properties": {
+     "llm": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SettingsGroup"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "embed": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SettingsGroup"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "title": "SettingsPut"
+   },
+   "StudyDetail": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "scheme": {
+      "type": "string",
+      "title": "Scheme"
+     },
+     "outline_thesis": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outline Thesis"
+     },
+     "outline_status": {
+      "type": "string",
+      "title": "Outline Status"
+     },
+     "source_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Type"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "scheme",
+     "outline_status"
+    ],
+    "title": "StudyDetail"
+   },
+   "StudyItem": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "source_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Id"
+     },
+     "source_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Type"
+     },
+     "parse_status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parse Status"
+     },
+     "parse_error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parse Error"
+     },
+     "outline_status": {
+      "type": "string",
+      "title": "Outline Status"
+     },
+     "progress": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProgressInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "last_learned_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Learned At"
+     },
+     "last_kp": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LastKp"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "outline_status"
+    ],
+    "title": "StudyItem"
+   },
+   "StudyPatch": {
+    "properties": {
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "scheme": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "guided",
+         "lecture",
+         "drill"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scheme"
+     }
+    },
+    "type": "object",
+    "title": "StudyPatch"
+   },
+   "UsageRow": {
+    "properties": {
+     "date": {
+      "type": "string",
+      "title": "Date"
+     },
+     "scene": {
+      "type": "string",
+      "title": "Scene"
+     },
+     "requests": {
+      "type": "integer",
+      "title": "Requests"
+     },
+     "prompt_tokens": {
+      "type": "integer",
+      "title": "Prompt Tokens"
+     },
+     "completion_tokens": {
+      "type": "integer",
+      "title": "Completion Tokens"
+     }
+    },
+    "type": "object",
+    "required": [
+     "date",
+     "scene",
+     "requests",
+     "prompt_tokens",
+     "completion_tokens"
+    ],
+    "title": "UsageRow"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}

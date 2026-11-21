@@ -9,7 +9,8 @@
 *.db-wal
 *.db-shm
 uploads/
-backend/data/
+backend/data*/
+frontend/e2e/fixtures/
 
 # Python
 __pycache__/
