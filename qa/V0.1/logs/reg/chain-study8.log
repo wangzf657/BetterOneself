@@ -1,0 +1,44 @@
+study=8 kp=110 baseline=0/9
+PASS TC-B3 建会话 | status=200 id=5
+PASS TC-B3-01 反例·无伪造用户消息 | messages=0
+PASS TC-B3-01 开场非空且带引用 | len=781
+PASS TC-B3-01 先定位后讲解 | {"text": "本节在全书中的位置：它属"}{"text": "于当前部分的核心推进，要"}{"text": "解决
+PASS TC-B3 重复开场 Conflict | status=409
+PASS TC-B3-04 自由提问回答非空 | len=543
+PASS TC-B3-04 回答带引用 | {"text": "关键在于区分「相关」与「"}{"text": "可用」：相关是静态相似，"}{"
+PASS TC-B3-04 回答为 assistant | roles=['assistant', 'user', 'assistant']
+PASS TC-B3 会话 scheme 默认 | scheme=guided
+PASS TC-B4-03 4 计分+1 练习 | graded=4 practice=1
+PASS TC-B4-02 通过线考前可见=3 | pass_line=3
+PASS TC-B4-01 反例·作答前不泄露答案
+PASS TC-B4-03 题型为单选/判断 | types={'judge', 'choice'}
+PASS TC-B4-01 说明含题型覆盖 coverage | coverage=[{'no': 1, 'dimension': '细节理解与辨析'}, {'no': 2, 'dimension': '细节理解与辨析'}, {'no': 3, 'dimension': '细节理解与辨析'}, {'no': 4, 'dimension': '细节理解与辨析'}]
+PASS TC-B4-09 重复生成回到同组 | q1=11 q2=11 status=200
+PASS TC-B4-07 未达线不点亮 | passed=False correct=0
+PASS TC-B4-05 逐题判定+答案+解析+refs
+PASS TC-B4-05 练习题评语且标不计分
+PASS TC-B4-05 保存本人作答 | submitted=5
+PASS TC-B4-07 反例·再考为新题 | q1=11 q3=12 stems_equal=False
+PASS TC-B4-06 达线点亮 | passed=True correct=4
+PASS TC-B4-12 练习乱写不影响点亮
+PASS TC-B4-06 树状态 lighted | status=lighted lighted_at=2026-11-21T12:09:25.429637
+PASS TC-B5-01 进度点亮+1 | progress={'lighted': 1, 'total': 9, 'percent': 11.1}
+PASS TC-B4-13 首次通过证据可下钻 | quiz_id=12 (期望首次通过的 12)
+PASS TC-B5-03 重命名分母不变 | progress={'lighted': 1, 'total': 9, 'percent': 11.1}
+PASS TC-B2-07 排除预览分母-1 | preview={'kp_id': 110, 'kp_name': '第五章 附录 习题答案', 'lighted_affected': 1, 'progress_before': {'lighted': 1, 'total': 9, 'percent': 11.1}, 'progress_after': {'lighted': 0, 'total': 8, 'percent': 0.0}}
+PASS TC-B2-07 应用后与预览一致 | progress={'lighted': 0, 'total': 8, 'percent': 0.0}
+PASS TC-B2-08 已排除禁学 | status=422 detail={'detail': '该节点已排除：历史会话只读可回看，不能开始新的学习', 'code': 'validation', 'retryable': False
+PASS TC-B2-08 恢复接口成功 | status=200 resp={'kp': {'id': 110, 'name': '第五章 附录 习题答案', 'sort_order': 17, 'parent_id': None, '
+PASS TC-B2-08 恢复后分母还原且仍点亮 | progress={'lighted': 1, 'total': 9, 'percent': 11.1} status=lighted
+PASS TC-B4-08 重考生成新组 | q4=13
+PASS TC-B4-08 未达线但 already_lighted=true | passed=False lighted={'kp_name': '第五章 附录 习题答案', 'lighted_at': '2026-11-21T12:09:25.429637', 'already_lighted': True}
+PASS TC-B4-08 点亮状态未变 | status=lighted lighted_at=2026-11-21T12:09:25.429637
+PASS TC-B3-07 笔记保存 | status=200
+PASS TC-B3-07 笔记读回一致
+PASS TC-B2-14 事件记录存在 | events=6
+PASS TC-B3-05 学习方法三选一可切换 | 最后 scheme=guided status=200
+PASS TC-B3-05 非法 scheme 422 | status=422
+PASS TC-B4-11 回看列表含历次测验 | ids=[13, 12, 11]
+
+==== SUMMARY ====
+total=40 pass=40 fail=0

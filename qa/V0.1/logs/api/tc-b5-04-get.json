@@ -1,0 +1,1 @@
+{"llm":{"base_url":"https://api.example.com/v1","model":"gpt-test","api_key":"sk-****7890"},"embed":{"base_url":null,"model":null,"api_key":null,"status":"pending","error":"AI 服务配置不完整（缺 base_url、model、api_key），请到设置页补全","note":"资料处理服务未配置或失败时，仅失去跨节点细节检索补足；当前节点的讲解、测验与原文不受影响。"}}

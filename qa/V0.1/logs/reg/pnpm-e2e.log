@@ -1,0 +1,35 @@
+$ playwright test
+[WebServer] INFO:     Started server process [39028]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] 2026-11-21 20:04:39,485 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.schemas
+[WebServer] 2026-11-21 20:04:39,485 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.tables
+[WebServer] 2026-11-21 20:04:39,485 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.types
+[WebServer] 2026-11-21 20:04:39,485 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.constraints
+[WebServer] 2026-11-21 20:04:39,485 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.defaults
+[WebServer] 2026-11-21 20:04:39,485 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.comments
+[WebServer] 2026-11-21 20:04:39,485 INFO alembic.runtime.plugins setup plugin alembic.ext.checkconstraint_byname
+[WebServer] INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+[WebServer] INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+[WebServer] INFO:     Started server process [36668]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] 2026-11-21 20:04:41,975 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.schemas
+[WebServer] 2026-11-21 20:04:41,975 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.tables
+[WebServer] 2026-11-21 20:04:41,975 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.types
+[WebServer] 2026-11-21 20:04:41,975 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.constraints
+[WebServer] 2026-11-21 20:04:41,975 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.defaults
+[WebServer] 2026-11-21 20:04:41,975 INFO alembic.runtime.plugins setup plugin alembic.autogenerate.comments
+[WebServer] 2026-11-21 20:04:41,975 INFO alembic.runtime.plugins setup plugin alembic.ext.checkconstraint_byname
+[WebServer] INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+[WebServer] INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+
+Running 7 tests using 1 worker
+
+  ok 1 e2e\main-flow.spec.ts:6:1 › 主链路：添加 → 树 → 学 → 测 → 点亮 → 进入下一节点 (3.8s)
+  ok 2 e2e\main-flow.spec.ts:60:1 › 未通过再考是新题；刷新后作答与判分一致 (1.2s)
+  ok 3 e2e\main-flow.spec.ts:85:1 › 点亮后重考失败不灭灯，显示原有点亮保留 (2.5s)
+  ok 4 e2e\main-flow.spec.ts:107:1 › 排除已点亮节点弹窗预览进度变化，应用后一致且可恢复 (2.2s)
+  ok 5 e2e\main-flow.spec.ts:144:1 › 笔记自动保存，刷新不丢 (1.6s)
+  ok 6 e2e\main-flow.spec.ts:163:1 › 双击导入不重复建书（BUG-003 / B1-01 反例） (1.6s)
+  ok 7 e2e\planning-fail.spec.ts:7:1 › 规划失败保树：仅规划失败，原树可编辑可学习 (2.0s)
+
+  7 passed (23.2s)

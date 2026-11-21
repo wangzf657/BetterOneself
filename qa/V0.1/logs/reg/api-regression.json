@@ -1,0 +1,148 @@
+{
+  "bug001": [
+    {
+      "name": "R1.0 基线全新(三字段全空)",
+      "pass": false,
+      "detail": "{\"base_url\": \"http://api.reg-b.test/v4\", \"model\": null, \"api_key\": \"sk-****et-b\"}"
+    },
+    {
+      "name": "R1.1 三项齐填全保存",
+      "pass": true,
+      "detail": "{\"base_url\": \"http://api.reg-a.test/v2\", \"model\": \"reg-model-a\", \"api_key\": \"sk-****et-a\"}"
+    },
+    {
+      "name": "R1.1b 密钥掩码不回显明文",
+      "pass": true,
+      "detail": "'sk-****et-a'"
+    },
+    {
+      "name": "R1.2 只改 base_url：model 不丢",
+      "pass": true,
+      "detail": "'reg-model-a'"
+    },
+    {
+      "name": "R1.2b 只改 base_url：api_key 不丢",
+      "pass": true,
+      "detail": "'sk-****et-a'"
+    },
+    {
+      "name": "R1.2c base_url 已更新",
+      "pass": true,
+      "detail": "'http://api.reg-b.test/v4'"
+    },
+    {
+      "name": "R1.3 只换密钥：base_url/model 保持",
+      "pass": true,
+      "detail": "{\"base_url\": \"http://api.reg-b.test/v4\", \"model\": \"reg-model-a\", \"api_key\": \"sk-****et-b\"}"
+    },
+    {
+      "name": "R1.3b 新密钥生效且掩码",
+      "pass": true,
+      "detail": "'sk-****et-b'"
+    },
+    {
+      "name": "R1.4 显式 null 清除 model",
+      "pass": true,
+      "detail": "None"
+    },
+    {
+      "name": "R1.4b 清除 model 不波及其他",
+      "pass": true,
+      "detail": "{\"base_url\": \"http://api.reg-b.test/v4\", \"model\": null, \"api_key\": \"sk-****et-b\"}"
+    },
+    {
+      "name": "R1.5 空对象 no-op 不清数据",
+      "pass": true,
+      "detail": "{\"base_url\": \"http://api.reg-b.test/v4\", \"model\": null, \"api_key\": \"sk-****et-b\"}"
+    },
+    {
+      "name": "R1.5b 空 llm 节 no-op",
+      "pass": true,
+      "detail": "'sk-****et-b'"
+    },
+    {
+      "name": "R1.6 embed 只改一项其余保持",
+      "pass": true,
+      "detail": "{\"base_url\": \"http://emb.reg2.test\", \"model\": \"emb-m\", \"api_key\": \"sk-****cret\", \"status\": \"failed\", \"error\": \"embedding 全部失败（可重试）\", \"note\": \"资料处理服务未配置或失败时，仅失去跨节点细节检索补足；当前节点的讲解、测验与原文不受影响。\"}"
+    },
+    {
+      "name": "R1.6b embed 修改不波及 llm 节",
+      "pass": true,
+      "detail": "{\"base_url\": \"http://api.reg-b.test/v4\", \"model\": null, \"api_key\": \"sk-****et-b\"}"
+    },
+    {
+      "name": "R1.7 DB 无明文密钥",
+      "pass": true,
+      "detail": "[[\"llm.base_url\", \"http://api.reg-b.test/v4\"], [\"llm.model\", null], [\"llm.api_key\", \"gAAAAABrAYhtcMtIwuCNpw52PcUmuXQU0WcIBhSsOYimYMoxnEJ5Ij1q2nftBAGW7L8wJUy-EVZ6ims59QTv5aD6GenW-7HRKg==\"], [\"embed.bas"
+    },
+    {
+      "name": "R1.7b DB 存 Fernet 密文",
+      "pass": true,
+      "detail": "rows=6"
+    },
+    {
+      "name": "R1.8 日志零明文密钥",
+      "pass": true,
+      "detail": "loglen=987"
+    }
+  ],
+  "bug002": [
+    {
+      "name": "R2.1 导入成功",
+      "pass": true,
+      "detail": "id=4"
+    },
+    {
+      "name": "R2.2 树就绪(含 AI 分组)",
+      "pass": true,
+      "detail": "roots=4 ai_group=1"
+    },
+    {
+      "name": "R2.3 outline 场景入账(BUG-002核心)",
+      "pass": true,
+      "detail": "scenes=['outline']"
+    },
+    {
+      "name": "R2.4 tutor 场景仍入账(防劣化)",
+      "pass": true,
+      "detail": "scenes=['outline', 'tutor'] opening_len=779 chat_len=541"
+    },
+    {
+      "name": "R2.5 quiz 场景入账(BUG-002核心)",
+      "pass": true,
+      "detail": "scenes=['outline', 'quiz', 'tutor'] quiz_status=200"
+    },
+    {
+      "name": "R2.6 用量行结构完整(日期/场景/调用数)",
+      "pass": true,
+      "detail": "[{\"date\": \"2026-11-21\", \"scene\": \"outline\", \"requests\": 13, \"prompt_tokens\": 0, \"completion_tokens\": 0}, {\"date\": \"2026-11-21\", \"scene\": \"quiz\", \"requests\": 1, \"prompt_tokens\": 0, \"completion_tokens\":"
+    }
+  ],
+  "bug003": [
+    {
+      "name": "R3.1 同键两次同书",
+      "pass": true,
+      "detail": "status=201/201 id1=1 id2=1 keys=['id', 'name', 'scheme', 'outline_thesis', 'outline_status', 'source_type'] created1=None created2=None"
+    },
+    {
+      "name": "R3.2 并发5连发全成功且同一书",
+      "pass": true,
+      "detail": "statuses=[201, 201, 201, 201, 201] ids={2}"
+    },
+    {
+      "name": "R3.3 不同键正常建新书",
+      "pass": true,
+      "detail": "id=3"
+    },
+    {
+      "name": "R3.4 书架无重复书名",
+      "pass": true,
+      "detail": "A=1 B=1 C=1"
+    },
+    {
+      "name": "R3.5 DB 层 3 键 3 书",
+      "pass": true,
+      "detail": "count=3"
+    }
+  ]
+}
