@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import sys
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BACKEND_DIR = Path(__file__).resolve().parents[2]
+# PyInstaller 冻结环境：只读资源基准指向解包目录（技术方案 §14.2），开发时为 backend/
+FROZEN = getattr(sys, "frozen", False)
+BACKEND_DIR = Path(getattr(sys, "_MEIPASS", "")) if FROZEN else Path(__file__).resolve().parents[2]
+# 可写基准：打包后为 exe 所在目录（便携，data/ 与 exe 同级），开发时同 BACKEND_DIR
+APP_DIR = Path(sys.executable).resolve().parent if FROZEN else BACKEND_DIR
 
 
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="BO_", env_file=None)
 
     # 运行数据目录：SQLite、上传文件、加密密钥（.gitignore 已忽略 backend/data/）
-    data_dir: Path = BACKEND_DIR / "data"
+    data_dir: Path = APP_DIR / "data"
     host: str = "127.0.0.1"
     port: int = 8000
 

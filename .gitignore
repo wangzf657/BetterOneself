@@ -19,6 +19,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# PyInstaller 工作目录（产物 dist/ 已由上方 dist/ 覆盖）
+build/
 
 # Node
 node_modules/

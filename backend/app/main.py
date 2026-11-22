@@ -21,7 +21,7 @@ from app.api.sessions import router as sessions_router
 from app.api.settings import router as settings_router
 from app.api.studies import router as studies_router
 from app.api.studies import sources_router
-from app.core.config import BACKEND_DIR, get_config
+from app.core.config import BACKEND_DIR, FROZEN, get_config
 from app.core.errors import AppError
 from app.core.security import OriginCheckMiddleware
 
@@ -51,7 +51,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def _mount_frontend(app: FastAPI) -> None:
-    dist = BACKEND_DIR.parent / "frontend" / "dist"
+    # 打包后前端构建产物按 frontend_dist/ 收进资源目录（技术方案 §14.2）
+    dist = BACKEND_DIR / "frontend_dist" if FROZEN else BACKEND_DIR.parent / "frontend" / "dist"
     if not dist.exists():
         return
     assets = dist / "assets"
