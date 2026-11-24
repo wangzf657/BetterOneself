@@ -1,7 +1,8 @@
-"""导入管线（技术方案 §4、§9）：三阶段解耦 + 任务认领 + 启动恢复 + embedding。
+"""导入管线（技术方案 §4、§9；V0.1.1 技术设计 §1）：三阶段解耦 + 统一预检 + 任务认领 + 启动恢复 + embedding。
 
-阶段 A 结构草稿（零 LLM）→ 阶段 B 正文切片挂引用 → 阶段 C 拟大纲（outline 服务）。
-每个阶段独立事务；引用挂载提交是拟大纲的前置；embedding 后台并行不阻塞。
+阶段 A 结构草稿（零 LLM）→ 阶段 B 正文切片挂引用 → 统一预检（embedding 必检、LLM 勾选才检）
+→ embedding 后台启动；AI 规划等用户在消耗确认页点「开始规划」后才跑（outline 服务）。
+每个阶段独立事务；引用挂载提交是规划的前置；embedding 后台并行不阻塞。
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import json
 import logging
 import struct
 import threading
+from collections.abc import Sequence
 from pathlib import Path
 
 from sqlalchemy import text, update
@@ -18,14 +20,21 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_config
 from app.core.db import get_session_local
-from app.core.errors import AppError, Conflict, LLMError, Validation
-from app.core.llm import embed_texts, llm_configured, load_embed_config
+from app.core.errors import AppError, Conflict, LLMError, NotFound, Validation
+from app.core.llm import embed_texts, load_embed_config
 from app.ingest import parse_file
 from app.ingest.chunker import chunk_book, location_json
 from app.models import KnowledgePoint, KnowledgeRef, OutlineEvent, Source, SourceChunk, Study
+from app.services import outline as outline_service
+from app.services import precheck
 from app.services.events import record_event
+from app.services.tree_core import evidence_kp_ids
 
 logger = logging.getLogger(__name__)
+
+LANE_EMBEDDING = "embedding"
+LANE_LLM = "llm"
+EMBED_RETRYABLE = ("pending", "precheck_failed", "failed", "degraded")
 
 
 def claim_parse(db: Session, source_id: int) -> bool:
@@ -72,8 +81,8 @@ def _fail_parse(db: Session, source_id: int, message: str) -> None:
     db.commit()
 
 
-def run_parse(source_id: int, *, defer_followups: bool = False) -> None:
-    """后台解析任务（sync，线程池运行）。"""
+def run_parse(source_id: int, *, start_precheck: bool = True) -> None:
+    """后台解析任务（sync，线程池运行）；解析后起预检线程（测试可关）。"""
     db = get_session_local()()
     try:
         source = db.get(Source, source_id)
@@ -103,16 +112,36 @@ def run_parse(source_id: int, *, defer_followups: bool = False) -> None:
             _fail_parse(db, source_id, f"建立结构时发生内部错误（{e.__class__.__name__}）")
             return
 
-        if defer_followups:
-            # embedding 并行、拟大纲在后台跑，均不阻塞本任务返回
-            threading.Thread(
-                target=_embed_worker, args=(source_id,), daemon=True, name=f"embed-{source_id}"
-            ).start()
-            threading.Thread(
-                target=_outline_worker, args=(study.id,), daemon=True, name=f"plan-{study.id}"
-            ).start()
+        if start_precheck:
+            # 解析后统一预检（B6-02）；embedding 与 AI 规划都在预检之后才各自继续
+            _start_precheck(study.id)
     finally:
         db.close()
+
+
+def _start_precheck(study_id: int) -> None:
+    threading.Thread(
+        target=_precheck_worker, args=(study_id,), daemon=True, name=f"precheck-{study_id}"
+    ).start()
+
+
+def _start_embed(source_id: int) -> None:
+    threading.Thread(
+        target=_embed_worker, args=(source_id,), daemon=True, name=f"embed-{source_id}"
+    ).start()
+
+
+def launch_planning(study_id: int) -> None:
+    threading.Thread(
+        target=_plan_worker, args=(study_id,), daemon=True, name=f"plan-{study_id}"
+    ).start()
+
+
+def _precheck_worker(study_id: int) -> None:
+    try:
+        asyncio.run(precheck_and_dispatch(study_id))
+    except Exception:
+        logger.exception("预检任务异常 study=%s", study_id)
 
 
 def _embed_worker(source_id: int) -> None:
@@ -122,13 +151,11 @@ def _embed_worker(source_id: int) -> None:
         logger.exception("embedding 任务异常 source=%s", source_id)
 
 
-def _outline_worker(study_id: int) -> None:
+def _plan_worker(study_id: int) -> None:
     try:
-        from app.services.outline import run_planning
-
-        asyncio.run(run_planning(study_id))
+        asyncio.run(outline_service.generate_proposal(study_id))
     except Exception:
-        logger.exception("拟大纲任务异常 study=%s", study_id)
+        logger.exception("AI 规划任务异常 study=%s", study_id)
 
 
 def _stage_a_structure(
@@ -286,6 +313,7 @@ def reparse(db: Session, source_id: int) -> Source:
         raise Conflict("解析正在进行中")
 
     _purge_structure(db, study.id, source.id)
+    outline_service.supersede_pending(db, study.id)
     db.execute(
         update(Source)
         .where(Source.id == source.id)
@@ -300,23 +328,95 @@ def reparse(db: Session, source_id: int) -> Source:
     return source
 
 
-def reembed(db: Session, source_id: int) -> Source:
-    """embedding 重试入口（P05 §2）。"""
+async def reembed(db: Session, source_id: int) -> dict[str, object]:
+    """embedding 重试（B6-06 验收 1）：先重新预检，通过才启动。"""
     source = db.get(Source, source_id)
     if source is None:
-        from app.core.errors import NotFound
-
         raise NotFound("资料不存在")
-    if source.embed_status not in ("failed", "degraded"):
-        raise Conflict("仅失败或降级状态的资料处理可以重试")
-    db.execute(
-        update(Source)
-        .where(Source.id == source_id)
-        .values(embed_status="pending", embed_error=None)
+    if source.embed_status not in ("precheck_failed", "failed", "degraded"):
+        raise Conflict("仅预检失败、失败或降级状态的资料可以重试")
+    result = await precheck_and_dispatch(source.study_id, lanes=(LANE_EMBEDDING,))
+    embedding = result[LANE_EMBEDDING]
+    return {
+        "status": "reembed_started" if embedding["ok"] else "precheck_failed",
+        "embedding": embedding,
+    }
+
+
+def _gate_replanning(db: Session, study: Study) -> None:
+    """再规划的前置：进行中/待确认不让路；已应用且有学习证据的书不能重新规划（B6-06 验收 3）。"""
+    status = study.outline_status
+    if status == "planning":
+        raise Conflict("AI 规划正在进行中，请稍候")
+    if status == "awaiting_confirm":
+        raise Conflict("已有待确认的规划建议，请先确认或拒绝")
+    has_structure = (
+        db.query(KnowledgePoint.id).filter(KnowledgePoint.study_id == study.id).first() is not None
     )
-    db.commit()
-    threading.Thread(target=_embed_worker, args=(source_id,), daemon=True).start()
-    return source
+    if not has_structure:
+        raise Validation("这本书没有可用的结构，无法进行 AI 规划")
+    if status == "ready" and evidence_kp_ids(db, study.id):
+        raise Conflict("这本书已有学习记录，不能重新规划；可在目录树中手动编辑")
+
+
+async def precheck_study(
+    db: Session, study_id: int, *, lanes: Sequence[str] | None = None
+) -> dict[str, dict[str, object]]:
+    """POST /studies/{id}/precheck（B6-06 手动重试入口）；lanes 缺省两路。"""
+    study = db.get(Study, study_id)
+    if study is None:
+        raise NotFound("学习项目不存在")
+    if lanes is None:
+        lanes = (LANE_EMBEDDING, LANE_LLM)
+    if LANE_LLM in lanes:
+        _gate_replanning(db, study)
+        study.use_ai_planning = True  # 未勾选后改主意：从星图页补启动（B6-06 验收 2）
+        db.commit()
+    return await precheck_and_dispatch(study_id, lanes=tuple(lanes))
+
+
+async def precheck_and_dispatch(
+    study_id: int, *, lanes: Sequence[str] | None = None
+) -> dict[str, dict[str, object]]:
+    """统一预检（B6-02）：探测 → 落状态 → embedding 通即后台启动。
+
+    lanes 缺省按书的勾选状态决定检不检 LLM；预检不通只落状态，不重试。
+    """
+    db = get_session_local()()
+    try:
+        study = db.get(Study, study_id)
+        if study is None:
+            raise NotFound("学习项目不存在")
+        if lanes is None:
+            checked = study.use_ai_planning and study.outline_status == "structure_ready"
+            lanes = (LANE_EMBEDDING, LANE_LLM) if checked else (LANE_EMBEDDING,)
+        source = db.get(Source, study.primary_source_id) if study.primary_source_id else None
+        results: dict[str, precheck.LaneResult] = {}
+        if LANE_EMBEDDING in lanes and source is not None:
+            results[LANE_EMBEDDING] = await precheck.probe_embedding(db)
+        if LANE_LLM in lanes:
+            results[LANE_LLM] = await precheck.probe_llm(db)
+
+        # 探测期间（最长 15 秒）用户可能已推进状态：写回前重读，只改仍停在可启动状态的路
+        db.expire_all()
+        embedding = results.get(LANE_EMBEDDING)
+        if source is not None and embedding is not None:
+            db.refresh(source)
+            if source.embed_status in EMBED_RETRYABLE:
+                source.embed_status = "pending" if embedding.ok else "precheck_failed"
+                source.embed_error = None if embedding.ok else embedding.detail
+        llm = results.get(LANE_LLM)
+        if llm is not None:
+            db.refresh(study)
+            if study.outline_status in outline_service.PLAN_RETRYABLE:
+                study.outline_status = "precheck_ok" if llm.ok else "precheck_failed"
+                study.outline_error = None if llm.ok else llm.detail
+        db.commit()
+        if source is not None and embedding is not None and embedding.ok:
+            _start_embed(source.id)
+        return {lane: r.as_dict() for lane, r in results.items()}
+    finally:
+        db.close()
 
 
 async def embed_source(source_id: int) -> None:
@@ -329,16 +429,17 @@ async def embed_source(source_id: int) -> None:
         if not claim_embed(db, source_id):
             return
         db.commit()
-        try:
-            load_embed_config(db)
-        except LLMError as e:
-            db.execute(
-                update(Source)
-                .where(Source.id == source_id)
-                .values(embed_status="pending", embed_error=str(e.detail))
-            )
-            db.commit()
-            return
+        if not get_config().llm_stub:  # 桩 embedding 不需要真实配置
+            try:
+                load_embed_config(db)
+            except LLMError as e:
+                db.execute(
+                    update(Source)
+                    .where(Source.id == source_id)
+                    .values(embed_status="precheck_failed", embed_error=str(e.detail))
+                )
+                db.commit()
+                return
 
         chunks = (
             db.query(SourceChunk)
@@ -431,22 +532,19 @@ def recover_on_startup() -> None:
         )
         for (sid,) in pending_sources:
             threading.Thread(
-                target=run_parse, args=(sid,), kwargs={"defer_followups": True}, daemon=True
+                target=run_parse, args=(sid,), daemon=True
             ).start()
 
-        # 引用已就绪但规划从未开始的（崩溃窗口）：重新入队一次
-        rows = db.execute(
+        # 预检没来得及生效（解析后、或预检通过与线程启动之间中断）：重做一次；
+        # precheck_failed 不在此列——预检失败只能由用户手动重试（B6-02 验收 4）
+        unchecked = db.execute(
             text(
                 "SELECT s.id FROM studies s JOIN sources src ON src.id = s.primary_source_id"
-                " WHERE s.outline_status = 'structure_ready' AND src.parse_status = 'parsed'"
-                " AND NOT EXISTS (SELECT 1 FROM outline_events e WHERE e.study_id = s.id"
-                "                 AND e.event_type = 'planning_started')"
+                " WHERE src.parse_status = 'parsed' AND src.embed_status = 'pending'"
             )
         ).scalars().all()
-        for sid in rows:
-            threading.Thread(
-                target=_outline_worker, args=(sid,), daemon=True
-            ).start()
+        for sid in unchecked:
+            _start_precheck(sid)
 
         # 清理孤儿临时文件
         uploads = get_config().uploads_dir
@@ -493,6 +591,8 @@ def pipeline_progress(db: Session, study_id: int) -> dict[str, object]:
         "status": study.outline_status,
         "error": study.outline_error,
         "thesis": study.outline_thesis,
+        "stage": outline_service.planning_stage(study_id),
+        "ai_planning": study.use_ai_planning,
     }
     return {"parse": parse, "outline": outline, "embedding": embedding}
 
@@ -518,22 +618,12 @@ async def search_similar(
     return out[:k]
 
 
-def planning_started_exists(db: Session, study_id: int) -> bool:
-    return (
-        db.query(OutlineEvent.id)
-        .filter(
-            OutlineEvent.study_id == study_id,
-            OutlineEvent.event_type == "planning_started",
-        )
-        .first()
-        is not None
-    )
-
-
 __all__ = [
     "embed_source",
-    "llm_configured",
+    "launch_planning",
     "pipeline_progress",
+    "precheck_and_dispatch",
+    "precheck_study",
     "recover_on_startup",
     "reembed",
     "reparse",

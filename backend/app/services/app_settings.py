@@ -30,6 +30,8 @@ def get_settings(db: Session) -> dict[str, Any]:
         worst = "failed"
     elif "degraded" in statuses:
         worst = "degraded"
+    elif "precheck_failed" in statuses:
+        worst = "precheck_failed"
     elif statuses and all(s == "ready" for s in statuses):
         worst = "ready"
     elif "running" in statuses:

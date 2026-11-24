@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ProgressInfo(BaseModel):
@@ -28,6 +28,7 @@ class StudyItem(BaseModel):
     parse_status: str | None = None
     parse_error: str | None = None
     outline_status: str
+    use_ai_planning: bool = False
     progress: ProgressInfo | None = None
     last_learned_at: datetime | None = None
     last_kp: LastKp | None = None
@@ -39,6 +40,9 @@ class StudyDetail(BaseModel):
     scheme: str
     outline_thesis: str | None = None
     outline_status: str
+    use_ai_planning: bool = False
+    planned_days: int = 10
+    learning_goal: str = ""
     source_type: str | None = None
 
 
@@ -158,11 +162,19 @@ class PhaseParse(BaseModel):
     error: str | None = None
 
 
+class PlanStage(BaseModel):
+    phase: str  # summary（章摘要 x/y）/ plan（全局规划）
+    done: int
+    total: int
+
+
 class PhaseOutline(BaseModel):
     status: str
     error: str | None = None
     thesis: str | None = None
     adjust_summary: dict[str, int] | None = None
+    stage: PlanStage | None = None
+    ai_planning: bool = False
 
 
 class PhaseEmbedding(BaseModel):
@@ -176,6 +188,83 @@ class PipelineProgress(BaseModel):
     parse: PhaseParse
     outline: PhaseOutline
     embedding: PhaseEmbedding
+
+
+class LaneCheck(BaseModel):
+    ok: bool
+    reason: Literal["not_configured", "request_failed", "dim_mismatch"] | None = None
+    detail: str | None = None
+
+
+class PrecheckBody(BaseModel):
+    lanes: list[Literal["embedding", "llm"]] | None = None
+
+
+class PrecheckResult(BaseModel):
+    embedding: LaneCheck | None = None
+    llm: LaneCheck | None = None
+
+
+class ReembedResult(BaseModel):
+    status: str  # reembed_started / precheck_failed
+    embedding: LaneCheck
+
+
+class Estimate(BaseModel):
+    embedding_tokens: int
+    planning_tokens: list[int]  # [下限, 上限]
+
+
+class PlanningStartBody(BaseModel):
+    planned_days: int = Field(ge=1, le=365)
+    learning_goal: str = Field(min_length=1, max_length=200)
+
+    @field_validator("learning_goal")
+    @classmethod
+    def _strip(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("学习目标不能为空白")
+        return v
+
+
+class ProposalOp(BaseModel):
+    op: str
+    node_id: int | None = None
+    node_ids: list[int] | None = None
+    chapter_ids: list[int] | None = None
+    title: str | None = None
+    reason: str | None = None
+    parts: list[dict[str, Any]] | None = None
+    targets: list[str]
+    flagged: bool = False
+    flag_reason: str | None = None
+
+
+class PlanningProposalView(BaseModel):
+    proposal_id: int
+    thesis: str
+    created_at: datetime
+    operations: list[ProposalOp]
+
+
+class ProposalApplyBody(BaseModel):
+    proposal_id: int
+    selected: list[int] = Field(min_length=1)
+
+
+class ProposalApplyResult(BaseModel):
+    status: str
+    adjust_summary: AdjustSummary
+    skipped: list[dict[str, Any]]
+
+
+class ProposalDeclineBody(BaseModel):
+    proposal_id: int
+
+
+class ProposalDeclineResult(BaseModel):
+    status: str
 
 
 class DeleteImpact(BaseModel):
@@ -269,6 +358,8 @@ class NodeContent(BaseModel):
     kp_id: int
     kp_name: str
     chunks: list[ChunkPayload]
+    source_id: int | None = None  # 原文视图按主文件取原文件与资产（B6-07）
+    source_type: str | None = None
 
 
 class ChunkDetail(BaseModel):

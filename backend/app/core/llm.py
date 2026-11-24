@@ -102,6 +102,11 @@ def _make_client(cfg: ServiceConfig) -> AsyncOpenAI:
     return AsyncOpenAI(base_url=cfg.base_url, api_key=cfg.api_key, timeout=180.0, max_retries=1)
 
 
+def _make_probe_client(cfg: ServiceConfig) -> AsyncOpenAI:
+    # 预检专用：服务不通时不能把一次探测挂到正式调用的 180 秒
+    return AsyncOpenAI(base_url=cfg.base_url, api_key=cfg.api_key, timeout=15.0, max_retries=0)
+
+
 async def complete(
     db: Session,
     messages: list[dict[str, str]],
@@ -186,6 +191,11 @@ async def stream(
 async def embed_texts(db: Session, texts: list[str]) -> list[list[float]]:
     """embedding 独立配置（硅基流动 bge-m3，1024 维 float32）。"""
     from app.core.db import EMBED_DIM
+
+    if get_config().llm_stub:
+        vectors = stub_llm.embed_texts(texts, dim=EMBED_DIM)
+        record_usage(db, "embed", sum(len(t) for t in texts) // 2, 0)
+        return vectors
 
     cfg = load_embed_config(db)
     try:

@@ -41,16 +41,35 @@ export function bookFile(): string {
   return join(p, "book.txt");
 }
 
-export async function createBook(page: Page, name: string): Promise<void> {
+/** 上传一本书，停在导入页。ai = 勾选「使用 AI 规划」（此时会自动弹消耗确认，页面其余部分对辅助技术隐藏）。 */
+export async function uploadBook(page: Page, name: string, { ai = false } = {}): Promise<void> {
   await page.goto("/studies/new");
   await page.fill("#book-name", name);
   await page.setInputFiles('input[type="file"]', bookFile());
+  if (ai) await page.getByRole("checkbox", { name: "使用 AI 规划", exact: false }).check();
   await page.getByRole("button", { name: "导入并查看技能树" }).click();
+  if (ai) return;
   // 等基础目录可用（按钮变为精确的「查看技能树 →」，非提交按钮）
-  const viewBtn = page.getByRole("button", { name: "查看技能树 →", exact: true });
-  await expect(viewBtn).toBeVisible({ timeout: 60_000 });
-  await viewBtn.click();
+  await expect(page.getByRole("button", { name: "查看技能树 →", exact: true })).toBeVisible({
+    timeout: 60_000,
+  });
+}
+
+export async function createBook(page: Page, name: string): Promise<void> {
+  await uploadBook(page, name);
+  await page.getByRole("button", { name: "查看技能树 →", exact: true }).click();
   await expect(page.getByRole("heading", { name })).toBeVisible({ timeout: 30_000 });
+}
+
+export const consumeDialog = (page: Page) =>
+  page.getByRole("dialog").filter({ hasText: "开始 AI 规划前，先确认消耗" });
+export const proposalDialog = (page: Page) =>
+  page.getByRole("dialog").filter({ hasText: "确认 AI 规划建议" });
+
+/** 星图页书菜单「···」→「AI 规划…」：未勾选的书从这里补启动（B6-06.2）。 */
+export async function openPlanningFromMenu(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "书菜单" }).click();
+  await page.getByText("AI 规划…", { exact: true }).click();
 }
 
 /** 进入章内路径并点第 n 个学习单元的“开始学习”。 */

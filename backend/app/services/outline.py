@@ -1,132 +1,383 @@
-"""拟大纲服务（B2-03、决策 #25）：生成 → 代码校验 → 逐条写事务复查应用。
+"""AI 规划服务（B2-03、B6-03/04，决策 #25/#34）：生成 → 代码校验 → 暂存建议 → 用户确认后应用。
 
 - 章摘要先行（失败退回仅结构信息输入）；
-- 生成：thesis + 五类操作单次全局调用；
+- 生成：thesis + 五类操作单次全局调用，结果只暂存不应用（planning_proposals）；
 - 校验：任一不满足 → 整体失败保树（宁缺毋滥）；
-- 应用：逐条复查（用户编辑 / 学习证据），跳过记 planning_conflict_skipped。
+- 应用：用户逐条勾选后在写事务内逐条复查（用户编辑 / 学习证据），跳过记 planning_conflict_skipped。
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import threading
+from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from sqlalchemy import update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from app.core.db import get_session_local
-from app.core.errors import Conflict, LLMNotConfigured, NotFound, Validation
-from app.core.llm import llm_configured
+from app.core.errors import Conflict, LLMError, NotFound, Validation
 from app.core.security import sanitize_error
-from app.models import KnowledgePoint, KnowledgeRef, OutlineEvent, SourceChunk, Study
+from app.models import (
+    KnowledgePoint,
+    KnowledgeRef,
+    OutlineEvent,
+    PlanningProposal,
+    Source,
+    SourceChunk,
+    Study,
+    utcnow,
+)
 from app.services.events import record_event
 from app.services.tree_core import TreeIndex, subtree_has_evidence
-from app.skills.outline_planner import PlanResult, summarize_chapter
+from app.skills.outline_planner import PlanOp, PlanResult, summarize_chapter
 
 logger = logging.getLogger(__name__)
 
 CHAPTER_SUMMARY_CHAR_CAP = 12000
-PLAN_ERROR_PREFIX = "拟大纲未完成"
+PLAN_ERROR_PREFIX = "AI 规划未完成"
+K_CN = 1.2  # 中文 token/字的估算系数（V0.1.1 技术设计 §4）
+SUMMARY_OUTPUT_TOKENS = 300  # 每章摘要的输出估计
+SUMMARY_CHARS = 150  # 单章摘要字数上限（skill 提示词约定）
+PLAN_OUTPUT_TOKENS = 2000
+# 可重新进入规划的状态；planning / awaiting_confirm 是进行中或等用户处理
+PLAN_RETRYABLE = ("structure_ready", "precheck_failed", "failed", "skipped", "ready")
 
 
 class PlanInvalid(Exception):
     """结构化校验失败——本次规划整体失败保树。"""
 
 
-async def run_planning(study_id: int, *, manual: bool = False) -> str:
-    """返回最终 outline_status。manual=True 为用户重试（允许从 ready/failed/skipped 再跑）。"""
+_stage_lock = threading.Lock()
+_stage: dict[int, dict[str, object]] = {}  # study_id → {phase, done, total}，只活在进程内
+
+
+def _set_stage(study_id: int, phase: str, done: int, total: int) -> None:
+    with _stage_lock:
+        _stage[study_id] = {"phase": phase, "done": done, "total": total}
+
+
+def planning_stage(study_id: int) -> dict[str, object] | None:
+    with _stage_lock:
+        return dict(_stage[study_id]) if study_id in _stage else None
+
+
+def _pending_proposal(db: Session, study_id: int) -> PlanningProposal | None:
+    return (
+        db.query(PlanningProposal)
+        .filter(PlanningProposal.study_id == study_id, PlanningProposal.status == "pending")
+        .one_or_none()
+    )
+
+
+def start_planning(
+    db: Session, study_id: int, *, planned_days: int, learning_goal: str
+) -> str:
+    """消耗确认后的启动（B6-03）：precheck_ok → planning；返回新状态，后台任务由调用方起。"""
+    study = db.get(Study, study_id)
+    if study is None:
+        raise NotFound("学习项目不存在")
+    status = study.outline_status
+    if status == "planning":
+        raise Conflict("AI 规划正在进行中，请稍候")
+    if status == "awaiting_confirm":
+        raise Conflict("已有待确认的规划建议，请先确认或拒绝")
+    if status != "precheck_ok":
+        raise Conflict("预检尚未通过，请先完成预检")
+    # 上次生成完就中断：建议还在，直接回到确认，不重花 token
+    target = "awaiting_confirm" if _pending_proposal(db, study_id) is not None else "planning"
+    # 条件更新原子认领：双击或并发请求只有一个能把 precheck_ok 换走
+    claimed = cast(
+        CursorResult[Any],
+        db.execute(
+            update(Study)
+            .where(Study.id == study_id, Study.outline_status == "precheck_ok")
+            .values(
+                outline_status=target,
+                outline_error=None,
+                planned_days=planned_days,
+                learning_goal=learning_goal,
+            )
+        ),
+    ).rowcount
+    if not claimed:
+        raise Conflict("AI 规划状态已变化，请刷新后重试")
+    if target == "planning":
+        record_event(db, study_id, "planning_started", "ai")
+    db.commit()
+    return target
+
+
+async def generate_proposal(study_id: int) -> str:
+    """后台规划任务：章摘要 → 全局规划 → 校验 → 暂存建议 → awaiting_confirm。返回最终 outline_status。"""
     db = get_session_local()()
     try:
         study = db.get(Study, study_id)
-        if study is None:
-            raise NotFound("学习项目不存在")
-        allowed = (
-            {"structure_ready", "failed", "skipped", "ready"} if manual else {"structure_ready"}
-        )
-        from sqlalchemy.engine import CursorResult
-
-        claimed = cast(
-            CursorResult[Any],
-            db.execute(
-                update(Study)
-                .where(Study.id == study_id, Study.outline_status.in_(allowed))
-                .values(outline_status="planning", outline_error=None)
-            ),
-        ).rowcount
-        if not claimed:
-            return "planning"  # 已在运行（API 层前置检查给出 409）
-        db.commit()
-        record_event(db, study_id, "planning_started", "ai")
-        db.commit()
-
+        if study is None or study.outline_status != "planning":
+            return study.outline_status if study else "idle"
         try:
-            from app.core.config import get_config as _cfg
-
-            if not (_cfg().llm_stub or llm_configured(db)):
-                study.outline_status = "skipped"
-                study.outline_error = "未配置 AI，已保留原书目录；可手动排除，或稍后配置重试"
-                record_event(db, study_id, "planning_skipped", "system",
-                             detail={"reason": "未配置 AI"})
-                db.commit()
-                return "skipped"
-
-            summaries = await _summarize_chapters(db, study_id)
+            chapters = sum(1 for kp in TreeIndex(db, study_id).kps if kp.is_chapter)
+            _set_stage(study_id, "summary", 0, chapters)
+            summaries = await _summarize_chapters(
+                db, study_id, on_progress=lambda done, total: _set_stage(study_id, "summary", done, total)
+            )
             input_data, snapshot = build_plan_input(db, study_id, summaries)
             from app.skills.outline_planner import parse_plan
             from app.skills.outline_planner import plan as skill_plan
 
-            raw = await skill_plan(db, input_data)
-            result = parse_plan(raw)
+            _set_stage(study_id, "plan", 0, 1)
+            result = parse_plan(await skill_plan(db, input_data))
             validate_plan(result, input_data)
-            applied, skipped = apply_operations(db, study_id, result, snapshot)
 
-            study = db.get(Study, study_id)
-            assert study is not None
-            study.outline_thesis = result.thesis
-            study.outline_status = "ready"
+            db.add(
+                PlanningProposal(
+                    study_id=study_id,
+                    thesis=result.thesis,
+                    ops_json=json.dumps(
+                        {"operations": [op.model_dump() for op in result.operations], "snapshot": snapshot},
+                        ensure_ascii=False,
+                    ),
+                )
+            )
+            study.outline_status = "awaiting_confirm"
             study.outline_error = None
-            adjust = _adjust_summary(result, applied, skipped)
             record_event(
-                db, study_id, "planning_finished", "ai", detail={"adjust_summary": adjust}
+                db, study_id, "planning_proposed", "ai", detail={"planned": len(result.operations)}
             )
             db.commit()
-            return "ready"
-        except LLMNotConfigured as e:
-            assert study is not None
-            study.outline_status = "skipped"
-            study.outline_error = e.detail
-            record_event(db, study_id, "planning_skipped", "system", detail={"reason": e.detail})
-            db.commit()
-            return "skipped"
-        except (PlanInvalid, Validation) as e:
-            assert study is not None
-            study.outline_status = "failed"
-            study.outline_error = f"{PLAN_ERROR_PREFIX}（仅规划失败，原目录未受影响）：{e}"
-            record_event(db, study_id, "planning_failed", "ai", detail={"reason": str(e)})
-            db.commit()
-            return "failed"
+            return "awaiting_confirm"
+        except (PlanInvalid, Validation, LLMError) as e:
+            reason = str(e)
         except Exception as e:
-            logger.exception("拟大纲内部错误 study=%s", study_id)
-            assert study is not None
-            study.outline_status = "failed"
-            study.outline_error = (
-                f"{PLAN_ERROR_PREFIX}（仅规划失败，原目录未受影响）：{sanitize_error(e)}"
-            )
-            record_event(db, study_id, "planning_failed", "ai",
-                         detail={"reason": sanitize_error(e)})
-            db.commit()
-            return "failed"
+            logger.exception("AI 规划内部错误 study=%s", study_id)
+            reason = sanitize_error(e)
+        db.rollback()
+        assert study is not None
+        study.outline_status = "failed"
+        study.outline_error = f"{PLAN_ERROR_PREFIX}（仅规划失败，原目录未受影响）：{reason}"
+        record_event(db, study_id, "planning_failed", "ai", detail={"reason": reason})
+        db.commit()
+        return "failed"
     finally:
+        with _stage_lock:
+            _stage.pop(study_id, None)
         db.close()
 
 
-async def _summarize_chapters(db: Session, study_id: int) -> dict[int, str]:
+def embedding_tokens(total_chars: int) -> int:
+    return int(total_chars * K_CN)
+
+
+def planning_token_range(chapter_chars: list[int], plan_input_chars: int) -> list[int]:
+    """AI 规划 token 区间 [下限, 上限]：摘要输入/输出 + 规划输入/输出（V0.1.1 技术设计 §4）。"""
+    total = (
+        sum(min(c, CHAPTER_SUMMARY_CHAR_CAP) for c in chapter_chars) * K_CN
+        + len(chapter_chars) * SUMMARY_OUTPUT_TOKENS
+        + plan_input_chars * K_CN
+        + PLAN_OUTPUT_TOKENS
+    )
+    return [int(total * 0.9), int(total * 1.3)]
+
+
+def estimate_tokens(db: Session, study_id: int) -> dict[str, Any]:
+    """消耗预估（B6-03）：全部由已落库数据静态计算，不调用任何 API。"""
+    study = db.get(Study, study_id)
+    if study is None:
+        raise NotFound("学习项目不存在")
+    source = db.get(Source, study.primary_source_id) if study.primary_source_id else None
+    embed_chars = (
+        sum(c.char_count for c in db.query(SourceChunk).filter(SourceChunk.source_id == source.id))
+        if source is not None
+        else 0
+    )
+    payload, _ = build_plan_input(db, study_id, {})
+    # 没有正文引用的章不进摘要
+    chapters = [n["subtree_char_count"] for n in payload["nodes"] if n["is_chapter"]]
+    chapters = [c for c in chapters if c > 0]
+    plan_input_chars = (
+        len(json.dumps(payload, ensure_ascii=False, default=str)) + len(chapters) * SUMMARY_CHARS
+    )
+    return {
+        "embedding_tokens": embedding_tokens(embed_chars),
+        "planning_tokens": planning_token_range(chapters, plan_input_chars),
+    }
+
+
+def _op_target_ids(op: dict[str, Any]) -> list[int]:
+    if op.get("node_id") is not None:
+        return [int(op["node_id"])]
+    ids = op.get("node_ids") or op.get("chapter_ids") or []
+    return [int(i) for i in ids]
+
+
+def _load_ops(proposal: PlanningProposal) -> tuple[list[dict[str, Any]], dict[int, str]]:
+    """JSON 落库后键是字符串，快照键要转回节点 id 才能比对。"""
+    data = json.loads(proposal.ops_json)
+    return data["operations"], {int(k): v for k, v in data["snapshot"].items()}
+
+
+def _stamp(dt: datetime) -> str:
+    """编辑比对的规范串：SQLite 读回的是 naive UTC，刚写入未过期的对象带 tzinfo，两种形态要可比。"""
+    return (dt.astimezone(UTC).replace(tzinfo=None) if dt.tzinfo else dt).isoformat()
+
+
+def _flag_reason(
+    db: Session,
+    study_id: int,
+    index: TreeIndex,
+    op: dict[str, Any],
+    snapshot: dict[int, str],
+) -> str | None:
+    """确认页预标注；规则与 apply_operations 的复查一致（B6-04 验收 2）。"""
+    found = [index.by_id.get(i) for i in _op_target_ids(op)]
+    if any(k is None for k in found):
+        return "节点已不存在"
+    kps = [k for k in found if k is not None]
+    if any(k.id in snapshot and snapshot[k.id] != _stamp(k.updated_at) for k in kps):
+        return "建议生成后已被编辑"
+    kind = op["op"]
+    if kind == "exclude" and kps[0].is_chapter:
+        return "章锚点不可排除"
+    if kind == "split":
+        if index.children.get(kps[0].id):
+            return "目标已有子节点"
+        if not index.refs_count.get(kps[0].id):
+            return "目标没有正文引用"
+        if subtree_has_evidence(db, study_id, index.subtree_ids(kps[0].id)):
+            return "子树含学习证据"
+    if kind == "merge":
+        if index.children.get(kps[0].id) or index.children.get(kps[1].id):
+            return "目标已有子节点"
+        if subtree_has_evidence(db, study_id, index.subtree_ids(kps[0].id) | index.subtree_ids(kps[1].id)):
+            return "子树含学习证据"
+    return None
+
+
+def proposal_view(db: Session, study_id: int) -> dict[str, Any] | None:
+    """当前待确认建议（含逐条预标注）；没有待确认的返回 None。"""
+    study = db.get(Study, study_id)
+    if study is None:
+        raise NotFound("学习项目不存在")
+    proposal = _pending_proposal(db, study_id)
+    if proposal is None:
+        return None
+    ops, snapshot = _load_ops(proposal)
+    index = TreeIndex(db, study_id)
+    items: list[dict[str, Any]] = []
+    for op in ops:
+        flag = _flag_reason(db, study_id, index, op, snapshot)
+        items.append(
+            {
+                **op,
+                "targets": [index.by_id[i].name if i in index.by_id else f"#{i}" for i in _op_target_ids(op)],
+                "flagged": flag is not None,
+                "flag_reason": flag,
+            }
+        )
+    return {
+        "proposal_id": proposal.id,
+        "thesis": proposal.thesis,
+        "created_at": proposal.created_at,
+        "operations": items,
+    }
+
+
+def _proposal_to_apply(
+    db: Session, study: Study, proposal_id: int
+) -> tuple[PlanningProposal, list[dict[str, Any]], dict[int, str]]:
+    if study.outline_status != "awaiting_confirm":
+        raise Conflict("当前没有待确认的规划建议")
+    proposal = db.get(PlanningProposal, proposal_id)
+    if proposal is None or proposal.study_id != study.id or proposal.status != "pending":
+        raise Conflict("该规划建议已失效，请刷新后重试")
+    ops, snapshot = _load_ops(proposal)
+    return proposal, ops, snapshot
+
+
+def apply_proposal(db: Session, study_id: int, proposal_id: int, selected: list[int]) -> dict[str, Any]:
+    """应用用户勾选的操作子集（B6-04）；写事务内仍逐条复查，冲突的跳过并记事件。"""
+    study = db.get(Study, study_id)
+    if study is None:
+        raise NotFound("学习项目不存在")
+    proposal, ops, snapshot = _proposal_to_apply(db, study, proposal_id)
+    if not selected:
+        raise Validation("请至少选择一条操作，或选择全部拒绝")
+    if len(set(selected)) != len(selected) or any(i < 0 or i >= len(ops) for i in selected):
+        raise Validation("所选操作序号无效")
+
+    result = PlanResult(
+        thesis=proposal.thesis or "", operations=[PlanOp.model_validate(ops[i]) for i in selected]
+    )
+    applied, skipped = apply_operations(db, study_id, result, snapshot)
+
+    db.expire_all()
+    study = db.get(Study, study_id)
+    applied_row = db.get(PlanningProposal, proposal_id)
+    assert study is not None and applied_row is not None
+    study.outline_thesis = result.thesis
+    study.outline_status = "ready"
+    study.outline_error = None
+    applied_row.status = "applied"
+    applied_row.applied_at = utcnow()
+    adjust = _adjust_summary(
+        PlanResult(
+            thesis=result.thesis, operations=[PlanOp.model_validate(op) for op in ops]
+        ),
+        applied,
+        skipped,
+    )
+
+    record_event(
+        db,
+        study_id,
+        "planning_finished",
+        "ai",
+        detail={
+            "adjust_summary": adjust,
+            "declined_by_user": [i for i in range(len(ops)) if i not in selected],
+        },
+    )
+    db.commit()
+    return {"status": "ready", "adjust_summary": adjust, "skipped": skipped}
+
+
+def decline_proposal(db: Session, study_id: int, proposal_id: int) -> dict[str, Any]:
+    """全部拒绝：树保持原树（B6-04 验收 4）。关闭确认页不走这里，建议原样保留。"""
+    study = db.get(Study, study_id)
+    if study is None:
+        raise NotFound("学习项目不存在")
+    proposal, ops, _ = _proposal_to_apply(db, study, proposal_id)
+    proposal.status = "declined"
+    study.outline_status = "skipped"
+    study.outline_error = None
+    record_event(db, study_id, "planning_declined", "user", detail={"planned": len(ops)})
+    db.commit()
+    return {"status": "skipped"}
+
+
+def supersede_pending(db: Session, study_id: int) -> None:
+    """树被整体重置（恢复原目录 / 重解析）：待确认建议对着旧树，作废。"""
+    db.execute(
+        update(PlanningProposal)
+        .where(PlanningProposal.study_id == study_id, PlanningProposal.status == "pending")
+        .values(status="superseded")
+    )
+
+
+async def _summarize_chapters(
+    db: Session, study_id: int, *, on_progress: Callable[[int, int], None] | None = None
+) -> dict[int, str]:
     """逐章摘要（四问模板）；写 kp.chapter_summary 不触发 updated_at；单章失败跳过。"""
     index = TreeIndex(db, study_id)
     chapters = [k for k in index.kps if k.is_chapter]
     summaries: dict[int, str] = {}
-    for ch in chapters:
+    for done, ch in enumerate(chapters, start=1):
+        if on_progress is not None:
+            on_progress(done - 1, len(chapters))
         chunk_ids: list[int] = []
         for kid in index.subtree_ids(ch.id):
             rows = (
@@ -157,6 +408,8 @@ async def _summarize_chapters(db: Session, study_id: int) -> dict[int, str]:
         )
         db.commit()
         summaries[ch.id] = summary
+        if on_progress is not None:
+            on_progress(done, len(chapters))
     return summaries
 
 
@@ -247,8 +500,10 @@ def build_plan_input(
         "nodes": nodes,
         "chapter_summaries": chapter_summaries or None,
         "ref_manifest": ref_manifest,
+        # 只作规划上下文（B6-03）：不生成学习计划或排期
+        "planning_context": {"planned_days": study.planned_days, "learning_goal": study.learning_goal},
     }
-    snapshot = {kp.id: kp.updated_at.isoformat() for kp in index.kps}
+    snapshot = {kp.id: _stamp(kp.updated_at) for kp in index.kps}
     return payload, snapshot
 
 
@@ -416,7 +671,7 @@ def apply_operations(
 
     def edited(kp: KnowledgePoint) -> bool:
         snap = snapshot.get(kp.id)
-        return snap is not None and kp.updated_at.isoformat() != snap
+        return snap is not None and _stamp(kp.updated_at) != snap
 
     def skip(op_name: str, kp: KnowledgePoint | None, reason: str) -> None:
         skipped.append(
@@ -491,6 +746,7 @@ def apply_operations(
                         study_id=study_id, parent_id=kp.id, name=part.title.strip(),
                         sort_order=i, is_chapter=False, origin="ai_split",
                         confidence=0.85, confidence_basis="AI 规划", planning_note=op.reason,
+                        chapter_summary=kp.chapter_summary,  # 拆分后子节点继承原摘要
                     )
                     db.add(child)
                     db.flush()
@@ -531,10 +787,15 @@ def apply_operations(
                 before = _progress_dict(index)
                 union_ids = sorted(set(_ordered_chunk_ids(db, a.id) + _ordered_chunk_ids(db, b.id)))
                 parent_id, sort_pos = a.parent_id, a.sort_order
+                # 合并后两份摘要拼接；新节点不是章锚点，摘要留作档案不再被摘要地图读取
+                merged_summary = "\n\n".join(
+                    s for s in (a.chapter_summary, b.chapter_summary) if s
+                )[:CHAPTER_SUMMARY_CHAR_CAP]
                 new = KnowledgePoint(
                     study_id=study_id, parent_id=parent_id, name=(op.title or "").strip(),
                     sort_order=sort_pos, is_chapter=False, origin="ai_merge",
                     confidence=0.85, confidence_basis="AI 规划", planning_note=op.reason,
+                    chapter_summary=merged_summary or None,
                 )
                 db.add(new)
                 db.flush()
@@ -642,22 +903,6 @@ def _adjust_summary(result: PlanResult, applied: list[str], skipped: list[dict[s
     }
 
 
-async def replan(db: Session, study_id: int) -> str:
-    """POST /outline/replan：已在运行 409；结构不存在 422；与自动规划共用链路。"""
-    study = db.get(Study, study_id)
-    if study is None:
-        raise NotFound("学习项目不存在")
-    if study.outline_status == "planning":
-        raise Conflict("拟大纲正在进行中，请稍候")
-    has_structure = (
-        db.query(KnowledgePoint.id).filter(KnowledgePoint.study_id == study_id).first()
-        is not None
-    )
-    if not has_structure:
-        raise Validation("这本书没有可用的结构，无法拟大纲")
-    return await run_planning(study_id, manual=True)
-
-
 def outline_status_dto(db: Session, study: Study) -> dict[str, Any]:
     low_conf = (
         db.query(KnowledgePoint)
@@ -686,9 +931,15 @@ def outline_status_dto(db: Session, study: Study) -> dict[str, Any]:
 __all__ = [
     "PlanInvalid",
     "apply_operations",
+    "apply_proposal",
     "build_plan_input",
+    "decline_proposal",
+    "estimate_tokens",
+    "generate_proposal",
     "outline_status_dto",
-    "replan",
-    "run_planning",
+    "planning_stage",
+    "proposal_view",
+    "start_planning",
+    "supersede_pending",
     "validate_plan",
 ]

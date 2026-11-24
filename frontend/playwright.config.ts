@@ -24,7 +24,7 @@ export default defineConfig({
       env: { BO_LLM_STUB: "1", BO_DATA_DIR: "data_e2e1" },
     },
     {
-      // 辅实例：桩 LLM 但拟大纲必失败（B2-03「仅规划失败保树」E2E）
+      // 辅实例：桩 LLM 但 AI 规划必失败（B2-03「仅规划失败保树」E2E）
       command: backend(8766),
       cwd: "../backend",
       url: "http://127.0.0.1:8766/api/studies",
@@ -34,6 +34,19 @@ export default defineConfig({
         BO_LLM_STUB: "1",
         BO_STUB_OUTLINE_FAIL: "1",
         BO_DATA_DIR: "data_e2e2",
+      },
+    },
+    {
+      // 第三实例：桩 LLM 但两路预检都不通（B6-02「分路提示、不自动重试」E2E）
+      command: backend(8767),
+      cwd: "../backend",
+      url: "http://127.0.0.1:8767/api/studies",
+      reuseExistingServer: true,
+      timeout: 120_000,
+      env: {
+        BO_LLM_STUB: "1",
+        BO_STUB_PRECHECK_FAIL: "embedding,llm",
+        BO_DATA_DIR: "data_e2e3",
       },
     },
   ],

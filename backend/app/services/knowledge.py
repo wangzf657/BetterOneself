@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import Conflict, NotFound, Validation
 from app.models import KnowledgePoint, OutlineEvent, Quiz, Study
 from app.services.events import record_event
+from app.services.outline import supersede_pending
 from app.services.tree_core import TreeIndex, evidence_kp_ids
 
 
@@ -307,12 +308,12 @@ def restore_original(db: Session, study_id: int) -> dict[str, Any]:
     if study is None:
         raise NotFound("学习项目不存在")
     if study.outline_status == "planning":
-        raise Conflict("拟大纲正在进行中，不能恢复原目录")
+        raise Conflict("AI 规划正在进行中，不能恢复原目录")
     evidence = evidence_kp_ids(db, study_id)
     if evidence:
         raise Validation(
             "这本书已有学习证据（会话/测验/笔记/点亮），不能整体恢复；请改用逐个排除",
-            )
+        )
     snapshot_event = (
         db.query(OutlineEvent)
         .filter(OutlineEvent.study_id == study_id, OutlineEvent.event_type == "structure_built")
@@ -329,6 +330,8 @@ def restore_original(db: Session, study_id: int) -> dict[str, Any]:
     revoked_renames = _count_events(db, study_id, {"kp_renamed"})
     revoked_exclusions = _count_events(db, study_id, {"kp_excluded"}, actor="user")
     ai_ops = _count_events(db, study_id, {"kp_created", "kp_excluded"}, actor="ai")
+
+    supersede_pending(db, study_id)  # 待确认的建议对着将被重置的树，一并作废
 
     # 快照节点带稳定 ID：先清空现树，再按快照重建（含 refs 映射）
     db.query(KnowledgePoint).filter(KnowledgePoint.study_id == study_id).delete()
@@ -363,7 +366,7 @@ def restore_original(db: Session, study_id: int) -> dict[str, Any]:
             )
     study.outline_thesis = None
     study.outline_status = "skipped"
-    study.outline_error = "已恢复原目录；可手动重试拟大纲"
+    study.outline_error = "已恢复原目录；可重新进行 AI 规划"
     record_event(
         db,
         study_id,

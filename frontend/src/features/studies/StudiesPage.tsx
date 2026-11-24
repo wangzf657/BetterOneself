@@ -77,6 +77,9 @@ function StudyCard({ study }: { study: StudyItem }) {
           <span className="truncate font-semibold">{study.name}</span>
           {study.source_type && <Badge>{study.source_type.toUpperCase()}</Badge>}
           {study.parse_status === "failed" && <Badge tone="amber">解析失败</Badge>}
+          {(study.outline_status === "precheck_ok" || study.outline_status === "awaiting_confirm") && (
+            <Badge tone="amber">待确认 AI 规划</Badge>
+          )}
         </div>
         <div className="mt-1 flex items-center gap-3 text-sm text-ink-soft">
           {study.progress ? (

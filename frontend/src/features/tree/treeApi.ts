@@ -120,19 +120,21 @@ export function useDissolve(studyId: number) {
   });
 }
 
-export function useReplan(studyId: number) {
-  const invalidate = useInvalidateTree();
+/** 手动重试入口（B6-06）：先重新预检，结果如实落到双进度区；要不要开确认页由调用方决定。 */
+export function usePrecheck(studyId: number) {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      const res = await client.POST("/api/studies/{study_id}/outline/replan", {
+    mutationFn: async (lanes?: ("embedding" | "llm")[]) => {
+      const res = await client.POST("/api/studies/{study_id}/precheck", {
         params: { path: { study_id: studyId } },
+        body: lanes ? { lanes } : null,
       });
       if (res.error) throw new Error(await errDetail(res));
       return res.data;
     },
     onSuccess: () => {
-      toast.success("已重新开始拟大纲");
-      invalidate(studyId);
+      for (const key of ["progress", "outline-status", "study"]) void qc.invalidateQueries({ queryKey: [key, studyId] });
+      void qc.invalidateQueries({ queryKey: ["studies"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

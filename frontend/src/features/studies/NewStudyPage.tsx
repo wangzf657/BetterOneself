@@ -6,6 +6,10 @@ import { toast } from "sonner";
 import { client, errDetail, type PipelineProgress } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/basics";
+import PlanConfirmDialog from "@/features/planning/PlanConfirmDialog";
+import ProposalDialog from "@/features/planning/ProposalDialog";
+import { LanesProgress, useProgress, type PlanDialog } from "@/features/planning/lanes";
+import { usePlanningDialogs } from "@/features/planning/usePlanningDialogs";
 
 const ACCEPT = ".pdf,.epub,.txt,.md,.markdown";
 
@@ -13,6 +17,7 @@ export default function NewStudyPage() {
   const nav = useNavigate();
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [useAi, setUseAi] = useState(false); // 默认不勾：不勾就是纯本地路径（B6-01）
   const [studyId, setStudyId] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // 幂等键进页生成一次（P1-05）：双击/重试共用同键，后端按键去重
@@ -25,9 +30,10 @@ export default function NewStudyPage() {
       const fd = new FormData();
       fd.set("name", name);
       fd.set("file", file!);
+      fd.set("use_ai_planning", String(useAi));
       const res = await client.POST("/api/studies", {
         // openapi-fetch 的 multipart 类型由运行时 FormData 承担
-        body: fd as unknown as { name: string; file: string },
+        body: fd as unknown as { name: string; file: string; use_ai_planning: boolean },
         headers: { "Idempotency-Key": idemKeyRef.current },
       });
       if (res.error) throw new Error(await errDetail(res));
@@ -63,24 +69,9 @@ export default function NewStudyPage() {
     [name],
   );
 
-  const { data: progress } = useQuery<PipelineProgress>({
-    queryKey: ["progress", studyId],
-    queryFn: async () => {
-      const res = await client.GET("/api/studies/{study_id}/progress", {
-        params: { path: { study_id: studyId! } },
-      });
-      if (res.error) throw new Error(await errDetail(res));
-      return res.data;
-    },
-    enabled: studyId !== null,
-    refetchInterval: (q) => {
-      const d = q.state.data;
-      if (!d) return 1200;
-      const parseDone = d.parse.status === "parsed" || d.parse.status === "failed";
-      const outlineDone = d.outline.status !== "structure_ready" && d.outline.status !== "planning";
-      return parseDone && outlineDone ? false : 1200;
-    },
-  });
+  const { data: progress } = useProgress(studyId);
+  // 导入页自动弹确认：预检通过弹消耗确认，建议生成后弹树确认（B6-03/04）
+  const plan = usePlanningDialogs(studyId, true);
 
   const viewReady = progress?.parse.status === "parsed" && studyId !== null;
 
@@ -156,6 +147,21 @@ export default function NewStudyPage() {
           onChange={(e) => onPick(e.target.files?.[0] ?? null)}
         />
 
+        <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={useAi}
+            onChange={(e) => setUseAi(e.target.checked)}
+          />
+          <span>
+            使用 AI 规划
+            <span className="block text-xs text-ink-soft">
+              会调用你配置的 AI 服务并产生 token 消耗；解析完成后先给出预估，再次确认后才开始。不勾选则只做本地解析。
+            </span>
+          </span>
+        </label>
+
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="outline" onClick={() => nav("/studies")}>
             取消
@@ -171,8 +177,29 @@ export default function NewStudyPage() {
           )}
         </div>
 
-        {studyId !== null && <ProgressSteps progress={progress} studyId={studyId} />}
+        {studyId !== null && <ProgressSteps progress={progress} studyId={studyId} onOpenPlan={plan.open} />}
       </div>
+
+      {studyId !== null && (
+        <>
+          <PlanConfirmDialog
+            studyId={studyId}
+            open={plan.dialog === "consume"}
+            onOpenChange={(v) => {
+              if (!v) plan.close("consume");
+            }}
+            onStarted={plan.started}
+          />
+          <ProposalDialog
+            studyId={studyId}
+            open={plan.dialog === "proposal"}
+            onOpenChange={(v) => {
+              if (!v) plan.close("proposal");
+            }}
+            onDone={() => nav(`/studies/${studyId}`)}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -265,9 +292,11 @@ export function ParseFailActions({ studyId }: { studyId: number }) {
 export function ProgressSteps({
   progress,
   studyId,
+  onOpenPlan,
 }: {
   progress?: PipelineProgress;
   studyId: number;
+  onOpenPlan: (d: PlanDialog) => void;
 }) {
   const p = progress;
   return (
@@ -281,15 +310,9 @@ export function ProgressSteps({
           </div>
         </div>
       ) : (
-        <Step state={!p || p.parse.status === "parsing" ? "doing" : "done"}>
-          正在解析正文与目录
-        </Step>
+        <Step state={!p || p.parse.status !== "parsed" ? "doing" : "done"}>正在解析正文与目录</Step>
       )}
-      <Step state={p && ["ready", "skipped", "failed"].includes(p.outline.status ?? "") ? "done" : "todo"}>
-        自动目录规划（后台进行，不阻塞）
-        {p?.outline.status === "skipped" && "（未配置 AI，已保留原目录）"}
-        {p?.outline.status === "failed" && "（拟大纲未完成，原目录未受影响）"}
-      </Step>
+      {p?.parse.status === "parsed" && <LanesProgress studyId={studyId} onOpen={onOpenPlan} />}
       <p className="pt-1 text-xs text-ink-soft">你可以留在此页，也可以稍后从“我的书”回来。</p>
     </div>
   );

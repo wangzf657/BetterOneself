@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_config
 from app.core.errors import LLMNotConfigured, NotFound, Validation
 from app.core.llm import llm_configured
-from app.models import KnowledgePoint, Message, Note, Session_, SourceChunk, Study, utcnow
+from app.models import KnowledgePoint, Message, Note, Session_, Source, SourceChunk, Study, utcnow
 from app.services import quiz as quiz_service
 from app.services.tree_core import TreeIndex
 
@@ -153,7 +153,16 @@ def node_content(db: Session, kp_id: int) -> dict[str, Any]:
         }
         for _r, c in rows
     ]
-    return {"kp_id": kp_id, "kp_name": kp.name, "chunks": chunks}
+    # 原文视图按主文件取原文件与资产（B6-07）
+    study = db.get(Study, kp.study_id)
+    source = db.get(Source, study.primary_source_id) if study and study.primary_source_id else None
+    return {
+        "kp_id": kp_id,
+        "kp_name": kp.name,
+        "chunks": chunks,
+        "source_id": source.id if source else None,
+        "source_type": source.type if source else None,
+    }
 
 
 def get_chunk(db: Session, chunk_id: int) -> dict[str, Any]:

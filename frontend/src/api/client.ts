@@ -24,6 +24,10 @@ export type NotePayload = components["schemas"]["NotePayload"];
 export type ChunkDetail = components["schemas"]["ChunkDetail"];
 export type NodeContent = components["schemas"]["NodeContent"];
 export type ProgressInfo = components["schemas"]["ProgressInfo"];
+export type Estimate = components["schemas"]["Estimate"];
+export type PlanningProposalView = components["schemas"]["PlanningProposalView"];
+export type ProposalOp = components["schemas"]["ProposalOp"];
+export type PrecheckResult = components["schemas"]["PrecheckResult"];
 
 /** 从后端响应取 detail 文案（错误统一 {"detail": ...}）。 */
 export async function errDetail(res: { error?: unknown }): Promise<string> {

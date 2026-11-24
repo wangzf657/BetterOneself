@@ -39,12 +39,6 @@ def outline_status(study_id: int, db: Session = Depends(get_db)) -> dict[str, ob
     return outline.outline_status_dto(db, study)
 
 
-@router.post("/studies/{study_id}/outline/replan", status_code=202)
-async def outline_replan(study_id: int, db: Session = Depends(get_db)) -> dict[str, str]:
-    status = await outline.replan(db, study_id)
-    return {"status": status}
-
-
 @router.get("/studies/{study_id}/outline/events", response_model=list[OutlineEventItem])
 def outline_events(
     study_id: int, limit: int = 50, db: Session = Depends(get_db)

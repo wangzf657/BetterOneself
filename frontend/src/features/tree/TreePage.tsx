@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, MoreHorizontal, RotateCw } from "lucide-react";
+import { ArrowLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -23,6 +23,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/menu";
+import PlanConfirmDialog from "@/features/planning/PlanConfirmDialog";
+import ProposalDialog from "@/features/planning/ProposalDialog";
+import { LanesProgress } from "@/features/planning/lanes";
+import { usePlanningDialogs, usePlanningEntry } from "@/features/planning/usePlanningDialogs";
 import { DeleteDialog } from "@/features/studies/StudiesPage";
 import { bookPref, fmtDateTime, STATUS_LABEL } from "@/lib/utils";
 import ChapterPathView from "./ChapterPathView";
@@ -30,7 +34,7 @@ import DetailPanel from "./DetailPanel";
 import EventsDrawer from "./EventsDrawer";
 import StarMapView from "./StarMapView";
 import WorkTreeView from "./WorkTreeView";
-import { useOutlineStatus, useRename, useReplan, useTree } from "./treeApi";
+import { useOutlineStatus, useRename, useTree } from "./treeApi";
 
 type ViewMode = "starmap" | "worktree";
 
@@ -50,6 +54,9 @@ export default function TreePage() {
   });
   const outlineQ = useOutlineStatus(studyId);
   const outline = outlineQ.data;
+  // 树页不自动弹确认：入口在双进度区与书菜单「AI 规划…」，关掉后不再弹回（B6-03/04/06）
+  const plan = usePlanningDialogs(studyId, false);
+  const planEntry = usePlanningEntry(studyId, plan);
 
   const hasChapter = useMemo(
     () => !!tree && flattenTree(tree.nodes).some((n) => n.is_chapter),
@@ -144,14 +151,23 @@ export default function TreePage() {
           )}
         </div>
         <CaliberBadge />
-        <BookMenu studyId={studyId} name={study?.name ?? ""} onRename={() => setRenameOpen(true)} />
+        <BookMenu
+          studyId={studyId}
+          name={study?.name ?? ""}
+          onRename={() => setRenameOpen(true)}
+          onPlan={planEntry.open}
+          planBusy={planEntry.busy || plan.status === "planning"}
+        />
       </div>
 
       {/* 继续上次 */}
       <ContinueRow studyId={studyId} nodes={nodes} />
 
-      {/* 状态条 */}
+      {/* 状态条 + 双进度 */}
       <StatusBar studyId={studyId} />
+      <div className="mt-3">
+        <LanesProgress studyId={studyId} onOpen={plan.open} />
+      </div>
 
       {/* 工具栏 */}
       <div className="mt-4 mb-4 flex items-center justify-between">
@@ -236,6 +252,22 @@ export default function TreePage() {
         onOpenChange={setRenameOpen}
         initial={study?.name ?? ""}
       />
+      <PlanConfirmDialog
+        studyId={studyId}
+        open={plan.dialog === "consume"}
+        onOpenChange={(v) => {
+          if (!v) plan.close("consume");
+        }}
+        onStarted={plan.started}
+      />
+      <ProposalDialog
+        studyId={studyId}
+        open={plan.dialog === "proposal"}
+        onOpenChange={(v) => {
+          if (!v) plan.close("proposal");
+        }}
+        onDone={() => undefined}
+      />
     </div>
   );
 }
@@ -303,46 +335,24 @@ function StatusBar({ studyId }: { studyId: number }) {
         ? 2000
         : false,
   });
-  const replan = useReplan(studyId);
   if (!outline) return null;
   const s = outline.status;
-  const thesisReady = s === "ready";
 
   let content: React.ReactNode = null;
   if (progress && ["pending", "parsing"].includes(progress.parse.status)) {
     content = <span>正在读取原书目录…</span>;
-  } else if (progress && progress.parse.status === "parsed" && s === "structure_ready") {
-    content = <span>原目录已可查看，正在准备可回跳的原文；AI 调整等引用就绪后应用</span>;
   } else if (s === "planning") {
-    content = <span className="animate-pulse">正在按书的逻辑拟大纲，原目录仍可编辑</span>;
-  } else if (s === "skipped") {
-    content = (
-      <span>
-        未配置 AI，已保留原书目录；可手动排除，或
-        <button className="mx-1 underline" onClick={() => undefined} disabled>
-          稍后配置重试
-        </button>
-        （到设置页配置）
-      </span>
-    );
-  } else if (s === "failed") {
-    content = (
-      <span>
-        拟大纲未完成（仅规划失败，不影响讲解与测验），原目录未受影响。{outline.error}
-        <Button size="sm" variant="outline" className="ml-2" onClick={() => replan.mutate()} disabled={replan.isPending}>
-          <RotateCw size={13} /> 稍后重试
-        </Button>
-      </span>
-    );
-  } else if (thesisReady) {
+    content = <span className="animate-pulse">正在按书的逻辑做 AI 规划，原目录仍可学习</span>;
+  } else if (s === "ready") {
     const a = outline.adjust_summary;
     content = (
       <span className="flex flex-wrap items-center gap-2">
-        <Badge tone="purple">AI 拟大纲</Badge>
-        已拟大纲：{a ? `${a.parts} 个部分、排除 ${a.excluded} 项、拆分 ${a.split} 处、合并 ${a.merged} 处（实际应用 ${a.applied} 项${a.skipped ? `、跳过 ${a.skipped} 项` : ""}）` : "完成"}
-        <button className="text-blue-600 hover:underline" onClick={() => undefined} />
+        <Badge tone="purple">AI 规划</Badge>
+        已应用：{a ? `${a.parts} 个部分、排除 ${a.excluded} 项、拆分 ${a.split} 处、合并 ${a.merged} 处（实际应用 ${a.applied} 项${a.skipped ? `、跳过 ${a.skipped} 项` : ""}）` : "完成"}
       </span>
     );
+  } else if ((s === "structure_ready" || s === "skipped") && !progress?.outline.ai_planning) {
+    content = <span>原目录已可学习；想按书的逻辑整理结构，可从右上「···」选择「AI 规划…」</span>;
   } else if ((outline.low_confidence_count ?? 0) > 0) {
     content = <span>部分层级由标题样式推断（低置信节点 {outline.low_confidence_count} 个），请检查标记节点</span>;
   }
@@ -356,20 +366,30 @@ function BookMenu({
   studyId,
   name,
   onRename,
+  onPlan,
+  planBusy,
 }: {
   studyId: number;
   name: string;
   onRename: () => void;
+  onPlan: () => void;
+  planBusy: boolean;
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger className="rounded p-1.5 text-ink-soft hover:bg-black/5">
+        <DropdownMenuTrigger
+          className="rounded p-1.5 text-ink-soft hover:bg-black/5"
+          aria-label="书菜单"
+        >
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem onSelect={onRename}>重命名书</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onPlan} disabled={planBusy}>
+            {planBusy ? "AI 规划进行中…" : "AI 规划…"}
+          </DropdownMenuItem>
           <DropdownMenuItem
             className="text-red-600"
             onSelect={(e) => {

@@ -358,6 +358,65 @@
     }
    }
   },
+  "/api/studies/{study_id}/precheck": {
+   "post": {
+    "tags": [
+     "studies"
+    ],
+    "summary": "Precheck Study",
+    "operationId": "precheck_study_api_studies__study_id__precheck_post",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/PrecheckBody"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PrecheckResult"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/sources/{source_id}/reparse": {
    "post": {
     "tags": [
@@ -428,11 +487,350 @@
       "content": {
        "application/json": {
         "schema": {
+         "$ref": "#/components/schemas/ReembedResult"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sources/{source_id}/original": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Original Source",
+    "description": "\u539f\u6587\u6587\u4ef6\uff08B6-07\uff09\uff1aPDF \u539f\u5b57\u8282\u652f\u6301 Range\uff1bTXT/MD \u4e0b\u53d1\u89c4\u8303\u5316\u6587\u672c\u3002",
+    "operationId": "original_source_api_sources__source_id__original_get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Source Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/sources/{source_id}/assets/{asset_path}": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Source Asset",
+    "description": "EPUB \u8d44\u4ea7\uff08B6-07\uff09\uff1aXHTML \u8fd4\u56de\u6d88\u6bd2\u7247\u6bb5\uff0c\u56fe\u7247\u6309\u767d\u540d\u5355\uff08\u6280\u672f\u8bbe\u8ba1 \u00a78.3\uff09\u3002",
+    "operationId": "source_asset_api_sources__source_id__assets__asset_path__get",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Source Id"
+      }
+     },
+     {
+      "name": "asset_path",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Asset Path"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/planning/estimate": {
+   "get": {
+    "tags": [
+     "planning"
+    ],
+    "summary": "Estimate",
+    "operationId": "estimate_api_studies__study_id__planning_estimate_get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Estimate"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/planning/start": {
+   "post": {
+    "tags": [
+     "planning"
+    ],
+    "summary": "Start",
+    "operationId": "start_api_studies__study_id__planning_start_post",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlanningStartBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
          "type": "object",
          "additionalProperties": {
           "type": "string"
          },
-         "title": "Response Reembed Source Api Sources  Source Id  Reembed Post"
+         "title": "Response Start Api Studies  Study Id  Planning Start Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/planning/proposal": {
+   "get": {
+    "tags": [
+     "planning"
+    ],
+    "summary": "Proposal",
+    "operationId": "proposal_api_studies__study_id__planning_proposal_get",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "anyOf": [
+          {
+           "$ref": "#/components/schemas/PlanningProposalView"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "title": "Response Proposal Api Studies  Study Id  Planning Proposal Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/planning/proposal/apply": {
+   "post": {
+    "tags": [
+     "planning"
+    ],
+    "summary": "Apply",
+    "operationId": "apply_api_studies__study_id__planning_proposal_apply_post",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProposalApplyBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProposalApplyResult"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/studies/{study_id}/planning/proposal/decline": {
+   "post": {
+    "tags": [
+     "planning"
+    ],
+    "summary": "Decline",
+    "operationId": "decline_api_studies__study_id__planning_proposal_decline_post",
+    "parameters": [
+     {
+      "name": "study_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Study Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProposalDeclineBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProposalDeclineResult"
         }
        }
       }
@@ -517,52 +915,6 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/OutlineStatus"
-        }
-       }
-      }
-     },
-     "422": {
-      "description": "Validation Error",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      }
-     }
-    }
-   }
-  },
-  "/api/studies/{study_id}/outline/replan": {
-   "post": {
-    "tags": [
-     "knowledge"
-    ],
-    "summary": "Outline Replan",
-    "operationId": "outline_replan_api_studies__study_id__outline_replan_post",
-    "parameters": [
-     {
-      "name": "study_id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "integer",
-       "title": "Study Id"
-      }
-     }
-    ],
-    "responses": {
-     "202": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "object",
-         "additionalProperties": {
-          "type": "string"
-         },
-         "title": "Response Outline Replan Api Studies  Study Id  Outline Replan Post"
         }
        }
       }
@@ -1739,6 +2091,11 @@
       "type": "string",
       "contentMediaType": "application/octet-stream",
       "title": "File"
+     },
+     "use_ai_planning": {
+      "type": "boolean",
+      "title": "Use Ai Planning",
+      "default": false
      }
     },
     "type": "object",
@@ -1931,6 +2288,27 @@
     },
     "type": "object",
     "title": "EmbedSettings"
+   },
+   "Estimate": {
+    "properties": {
+     "embedding_tokens": {
+      "type": "integer",
+      "title": "Embedding Tokens"
+     },
+     "planning_tokens": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Planning Tokens"
+     }
+    },
+    "type": "object",
+    "required": [
+     "embedding_tokens",
+     "planning_tokens"
+    ],
+    "title": "Estimate"
    },
    "ExcludeBody": {
     "properties": {
@@ -2232,6 +2610,46 @@
     ],
     "title": "KpMutationResult"
    },
+   "LaneCheck": {
+    "properties": {
+     "ok": {
+      "type": "boolean",
+      "title": "Ok"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "not_configured",
+         "request_failed",
+         "dim_mismatch"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "required": [
+     "ok"
+    ],
+    "title": "LaneCheck"
+   },
    "LastKp": {
     "properties": {
      "id": {
@@ -2352,6 +2770,28 @@
       },
       "type": "array",
       "title": "Chunks"
+     },
+     "source_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Id"
+     },
+     "source_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Type"
      }
     },
     "type": "object",
@@ -2586,6 +3026,21 @@
        }
       ],
       "title": "Adjust Summary"
+     },
+     "stage": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PlanStage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "ai_planning": {
+      "type": "boolean",
+      "title": "Ai Planning",
+      "default": false
      }
     },
     "type": "object",
@@ -2638,6 +3093,133 @@
     ],
     "title": "PipelineProgress"
    },
+   "PlanStage": {
+    "properties": {
+     "phase": {
+      "type": "string",
+      "title": "Phase"
+     },
+     "done": {
+      "type": "integer",
+      "title": "Done"
+     },
+     "total": {
+      "type": "integer",
+      "title": "Total"
+     }
+    },
+    "type": "object",
+    "required": [
+     "phase",
+     "done",
+     "total"
+    ],
+    "title": "PlanStage"
+   },
+   "PlanningProposalView": {
+    "properties": {
+     "proposal_id": {
+      "type": "integer",
+      "title": "Proposal Id"
+     },
+     "thesis": {
+      "type": "string",
+      "title": "Thesis"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "operations": {
+      "items": {
+       "$ref": "#/components/schemas/ProposalOp"
+      },
+      "type": "array",
+      "title": "Operations"
+     }
+    },
+    "type": "object",
+    "required": [
+     "proposal_id",
+     "thesis",
+     "created_at",
+     "operations"
+    ],
+    "title": "PlanningProposalView"
+   },
+   "PlanningStartBody": {
+    "properties": {
+     "planned_days": {
+      "type": "integer",
+      "maximum": 365.0,
+      "minimum": 1.0,
+      "title": "Planned Days"
+     },
+     "learning_goal": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Learning Goal"
+     }
+    },
+    "type": "object",
+    "required": [
+     "planned_days",
+     "learning_goal"
+    ],
+    "title": "PlanningStartBody"
+   },
+   "PrecheckBody": {
+    "properties": {
+     "lanes": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string",
+         "enum": [
+          "embedding",
+          "llm"
+         ]
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lanes"
+     }
+    },
+    "type": "object",
+    "title": "PrecheckBody"
+   },
+   "PrecheckResult": {
+    "properties": {
+     "embedding": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LaneCheck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "llm": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LaneCheck"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "title": "PrecheckResult"
+   },
    "ProgressInfo": {
     "properties": {
      "lighted": {
@@ -2666,6 +3248,193 @@
      "total"
     ],
     "title": "ProgressInfo"
+   },
+   "ProposalApplyBody": {
+    "properties": {
+     "proposal_id": {
+      "type": "integer",
+      "title": "Proposal Id"
+     },
+     "selected": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "minItems": 1,
+      "title": "Selected"
+     }
+    },
+    "type": "object",
+    "required": [
+     "proposal_id",
+     "selected"
+    ],
+    "title": "ProposalApplyBody"
+   },
+   "ProposalApplyResult": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "adjust_summary": {
+      "$ref": "#/components/schemas/AdjustSummary"
+     },
+     "skipped": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Skipped"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "adjust_summary",
+     "skipped"
+    ],
+    "title": "ProposalApplyResult"
+   },
+   "ProposalDeclineBody": {
+    "properties": {
+     "proposal_id": {
+      "type": "integer",
+      "title": "Proposal Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "proposal_id"
+    ],
+    "title": "ProposalDeclineBody"
+   },
+   "ProposalDeclineResult": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status"
+    ],
+    "title": "ProposalDeclineResult"
+   },
+   "ProposalOp": {
+    "properties": {
+     "op": {
+      "type": "string",
+      "title": "Op"
+     },
+     "node_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Node Id"
+     },
+     "node_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "integer"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Node Ids"
+     },
+     "chapter_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "integer"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Chapter Ids"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "parts": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parts"
+     },
+     "targets": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Targets"
+     },
+     "flagged": {
+      "type": "boolean",
+      "title": "Flagged",
+      "default": false
+     },
+     "flag_reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Flag Reason"
+     }
+    },
+    "type": "object",
+    "required": [
+     "op",
+     "targets"
+    ],
+    "title": "ProposalOp"
    },
    "QuizAnswerBody": {
     "properties": {
@@ -2860,6 +3629,23 @@
      "pass_line"
     ],
     "title": "RecentQuiz"
+   },
+   "ReembedResult": {
+    "properties": {
+     "status": {
+      "type": "string",
+      "title": "Status"
+     },
+     "embedding": {
+      "$ref": "#/components/schemas/LaneCheck"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status",
+     "embedding"
+    ],
+    "title": "ReembedResult"
    },
    "RenameBody": {
     "properties": {
@@ -3205,6 +3991,21 @@
       "type": "string",
       "title": "Outline Status"
      },
+     "use_ai_planning": {
+      "type": "boolean",
+      "title": "Use Ai Planning",
+      "default": false
+     },
+     "planned_days": {
+      "type": "integer",
+      "title": "Planned Days",
+      "default": 10
+     },
+     "learning_goal": {
+      "type": "string",
+      "title": "Learning Goal",
+      "default": ""
+     },
      "source_type": {
       "anyOf": [
        {
@@ -3283,6 +4084,11 @@
      "outline_status": {
       "type": "string",
       "title": "Outline Status"
+     },
+     "use_ai_planning": {
+      "type": "boolean",
+      "title": "Use Ai Planning",
+      "default": false
      },
      "progress": {
       "anyOf": [

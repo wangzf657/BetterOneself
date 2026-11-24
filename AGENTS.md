@@ -22,6 +22,11 @@
 | [docs/v0.1/technical/流程图.md](docs/v0.1/technical/流程图.md) | 导入、拟大纲、目录编辑、会话、测验点亮与进度流程 | 改 service 编排与事务前 |
 | [docs/v0.1/technical/接口设计.md](docs/v0.1/technical/接口设计.md) | 目标 API 契约与需求映射 | 改 api/、schemas/ 或前端请求前 |
 
+### 进行中：V0.1.1（实现中——后端与前端管线界面已完成，原文双视图未开始）
+
+- [docs/v0.1.1/](docs/v0.1.1/)：导入管线与 AI 规划重构——上传勾选 opt-in、解析后统一预检、消耗预估与确认（含计划天数/学习目标）、规划结果逐条确认、双进度展示、学习页原文双视图（B6-01…B6-07，决策 #34–#41）。术语：「AI 拟大纲」对外统一改称「AI 规划」。
+- **当前进度与已知问题以 [docs/v0.1.1/实现进度.md](docs/v0.1.1/实现进度.md) 为准**（交接文档，接手先读）。
+
 ### 决策与历史
 
 - [docs/v0.1/决策记录.md](docs/v0.1/决策记录.md)：当前关键取舍与已否决方案。
@@ -33,14 +38,14 @@
 
 ## 技术栈速览
 
-- backend：Python 3.12 / FastAPI / SQLAlchemy 2 + SQLite（sqlite-vec）/ Docling；无 LangGraph、py-fsrs（V0.1 会话为顺序流；复习在后续候选）
-- frontend：React 19 + Vite + TS strict / shadcn/ui + Tailwind 4 / TanStack Query
+- backend：Python 3.12 / FastAPI / SQLAlchemy 2 + SQLite（sqlite-vec）/ pypdf + BeautifulSoup + lxml（Docling 未落地）/ nh3（EPUB 消毒）；无 LangGraph、py-fsrs（V0.1 会话为顺序流；复习在后续候选）
+- frontend：React 19 + Vite + TS strict / shadcn/ui + Tailwind 4 / TanStack Query / pdfjs-dist + react-markdown（原文双视图用）
 - LLM：OpenAI 兼容协议 BYO-Key；embedding 独立配置；核心 AI 拆 `outline_planner / tutor / quiz` 三个小 skill
 - 当前导入仅 EPUB / TXT / PDF / Markdown 单文件；不做网页、GitHub、粘贴文本或补充资料
 
 ## 常用命令
 
-> 当前仓库已按[决策记录](docs/v0.1/决策记录.md) #24 清零重写：backend / frontend 已删除，待按 v0.1 产品文档重建；以下命令在重建后生效。
+> E2E 用独立端口与数据目录（见 frontend/playwright.config.ts），不要占用开发服务（8000/5173）。
 
 ```bash
 cd backend  && uv sync && uv run uvicorn app.main:app --reload

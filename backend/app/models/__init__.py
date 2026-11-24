@@ -1,4 +1,4 @@
-"""SQLAlchemy 2 模型：13 张表（数据模型 §3）。
+"""SQLAlchemy 2 模型：14 张表（数据模型 §3；planning_proposals 见 V0.1.1 技术设计 §5）。
 
 知识点是数据枢纽：会话、测验、笔记、点亮全部通过 kp_id 关联。
 """
@@ -20,6 +20,8 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+DEFAULT_LEARNING_GOAL = "学透这本书：合上书也能讲清楚"
 
 
 def utcnow() -> datetime:
@@ -45,6 +47,14 @@ class Study(Base):
     )
     outline_error: Mapped[str | None] = mapped_column(Text)
     outline_thesis: Mapped[str | None] = mapped_column(Text)
+    # use_ai_planning 落库而非只活在请求里：崩溃重启后 run_parse 重排，勾选不能丢
+    use_ai_planning: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0")
+    )
+    planned_days: Mapped[int] = mapped_column(Integer, default=10, server_default="10")
+    learning_goal: Mapped[str] = mapped_column(
+        Text, default=DEFAULT_LEARNING_GOAL, server_default=DEFAULT_LEARNING_GOAL
+    )
     last_kp_id: Mapped[int | None] = mapped_column(
         ForeignKey("knowledge_points.id", use_alter=True, ondelete="SET NULL")
     )
@@ -72,7 +82,7 @@ class Source(Base):
     parse_error: Mapped[str | None] = mapped_column(Text)
     embed_status: Mapped[str] = mapped_column(
         String(16), default="pending", server_default="pending"
-    )  # pending / running / ready / degraded / failed
+    )  # pending / precheck_failed / running / ready / degraded / failed
     embed_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -133,6 +143,29 @@ class KnowledgePoint(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+
+
+class PlanningProposal(Base):
+    __tablename__ = "planning_proposals"
+    __table_args__ = (
+        # 每本书至多一条待确认建议；确认可能隔很久，不能靠进程内状态（V0.1.1 技术设计 §5）
+        Index(
+            "uq_planning_proposals_pending",
+            "study_id",
+            unique=True,
+            sqlite_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    study_id: Mapped[int] = mapped_column(ForeignKey("studies.id", ondelete="CASCADE"))
+    thesis: Mapped[str | None] = mapped_column(Text)
+    ops_json: Mapped[str] = mapped_column(Text)  # {operations, snapshot}
+    status: Mapped[str] = mapped_column(
+        String(16), default="pending", server_default="pending"
+    )  # pending / applied / declined / superseded
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class KnowledgeRef(Base):

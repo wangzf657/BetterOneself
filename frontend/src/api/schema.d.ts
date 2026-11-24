@@ -92,6 +92,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/studies/{study_id}/precheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Precheck Study */
+        post: operations["precheck_study_api_studies__study_id__precheck_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sources/{source_id}/reparse": {
         parameters: {
             query?: never;
@@ -126,6 +143,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sources/{source_id}/original": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Original Source
+         * @description 原文文件（B6-07）：PDF 原字节支持 Range；TXT/MD 下发规范化文本。
+         */
+        get: operations["original_source_api_sources__source_id__original_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/{source_id}/assets/{asset_path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Source Asset
+         * @description EPUB 资产（B6-07）：XHTML 返回消毒片段，图片按白名单（技术设计 §8.3）。
+         */
+        get: operations["source_asset_api_sources__source_id__assets__asset_path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/studies/{study_id}/planning/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estimate */
+        get: operations["estimate_api_studies__study_id__planning_estimate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/studies/{study_id}/planning/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_studies__study_id__planning_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/studies/{study_id}/planning/proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Proposal */
+        get: operations["proposal_api_studies__study_id__planning_proposal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/studies/{study_id}/planning/proposal/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply */
+        post: operations["apply_api_studies__study_id__planning_proposal_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/studies/{study_id}/planning/proposal/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline */
+        post: operations["decline_api_studies__study_id__planning_proposal_decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/studies/{study_id}/knowledge": {
         parameters: {
             query?: never;
@@ -154,23 +296,6 @@ export interface paths {
         get: operations["outline_status_api_studies__study_id__outline_status_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/studies/{study_id}/outline/replan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Outline Replan */
-        post: operations["outline_replan_api_studies__study_id__outline_replan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -582,6 +707,11 @@ export interface components {
             name: string;
             /** File */
             file: string;
+            /**
+             * Use Ai Planning
+             * @default false
+             */
+            use_ai_planning: boolean;
         };
         /** Body_replace_source_api_studies__study_id__source_replace_post */
         Body_replace_source_api_studies__study_id__source_replace_post: {
@@ -639,6 +769,13 @@ export interface components {
             error?: string | null;
             /** Note */
             note?: string | null;
+        };
+        /** Estimate */
+        Estimate: {
+            /** Embedding Tokens */
+            embedding_tokens: number;
+            /** Planning Tokens */
+            planning_tokens: number[];
         };
         /** ExcludeBody */
         ExcludeBody: {
@@ -715,6 +852,15 @@ export interface components {
             progress_before?: components["schemas"]["ProgressInfo"] | null;
             progress_after?: components["schemas"]["ProgressInfo"] | null;
         };
+        /** LaneCheck */
+        LaneCheck: {
+            /** Ok */
+            ok: boolean;
+            /** Reason */
+            reason?: ("not_configured" | "request_failed" | "dim_mismatch") | null;
+            /** Detail */
+            detail?: string | null;
+        };
         /** LastKp */
         LastKp: {
             /** Id */
@@ -768,6 +914,10 @@ export interface components {
             kp_name: string;
             /** Chunks */
             chunks: components["schemas"]["ChunkPayload"][];
+            /** Source Id */
+            source_id?: number | null;
+            /** Source Type */
+            source_type?: string | null;
         };
         /** NotePayload */
         NotePayload: {
@@ -840,6 +990,12 @@ export interface components {
             adjust_summary?: {
                 [key: string]: number;
             } | null;
+            stage?: components["schemas"]["PlanStage"] | null;
+            /**
+             * Ai Planning
+             * @default false
+             */
+            ai_planning: boolean;
         };
         /** PhaseParse */
         PhaseParse: {
@@ -854,6 +1010,46 @@ export interface components {
             outline: components["schemas"]["PhaseOutline"];
             embedding: components["schemas"]["PhaseEmbedding"];
         };
+        /** PlanStage */
+        PlanStage: {
+            /** Phase */
+            phase: string;
+            /** Done */
+            done: number;
+            /** Total */
+            total: number;
+        };
+        /** PlanningProposalView */
+        PlanningProposalView: {
+            /** Proposal Id */
+            proposal_id: number;
+            /** Thesis */
+            thesis: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Operations */
+            operations: components["schemas"]["ProposalOp"][];
+        };
+        /** PlanningStartBody */
+        PlanningStartBody: {
+            /** Planned Days */
+            planned_days: number;
+            /** Learning Goal */
+            learning_goal: string;
+        };
+        /** PrecheckBody */
+        PrecheckBody: {
+            /** Lanes */
+            lanes?: ("embedding" | "llm")[] | null;
+        };
+        /** PrecheckResult */
+        PrecheckResult: {
+            embedding?: components["schemas"]["LaneCheck"] | null;
+            llm?: components["schemas"]["LaneCheck"] | null;
+        };
         /** ProgressInfo */
         ProgressInfo: {
             /** Lighted */
@@ -862,6 +1058,61 @@ export interface components {
             total: number;
             /** Percent */
             percent?: number | null;
+        };
+        /** ProposalApplyBody */
+        ProposalApplyBody: {
+            /** Proposal Id */
+            proposal_id: number;
+            /** Selected */
+            selected: number[];
+        };
+        /** ProposalApplyResult */
+        ProposalApplyResult: {
+            /** Status */
+            status: string;
+            adjust_summary: components["schemas"]["AdjustSummary"];
+            /** Skipped */
+            skipped: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** ProposalDeclineBody */
+        ProposalDeclineBody: {
+            /** Proposal Id */
+            proposal_id: number;
+        };
+        /** ProposalDeclineResult */
+        ProposalDeclineResult: {
+            /** Status */
+            status: string;
+        };
+        /** ProposalOp */
+        ProposalOp: {
+            /** Op */
+            op: string;
+            /** Node Id */
+            node_id?: number | null;
+            /** Node Ids */
+            node_ids?: number[] | null;
+            /** Chapter Ids */
+            chapter_ids?: number[] | null;
+            /** Title */
+            title?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Parts */
+            parts?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Targets */
+            targets: string[];
+            /**
+             * Flagged
+             * @default false
+             */
+            flagged: boolean;
+            /** Flag Reason */
+            flag_reason?: string | null;
         };
         /** QuizAnswerBody */
         QuizAnswerBody: {
@@ -922,6 +1173,12 @@ export interface components {
             pass_line: number;
             /** Answered At */
             answered_at?: string | null;
+        };
+        /** ReembedResult */
+        ReembedResult: {
+            /** Status */
+            status: string;
+            embedding: components["schemas"]["LaneCheck"];
         };
         /** RenameBody */
         RenameBody: {
@@ -1034,6 +1291,21 @@ export interface components {
             outline_thesis?: string | null;
             /** Outline Status */
             outline_status: string;
+            /**
+             * Use Ai Planning
+             * @default false
+             */
+            use_ai_planning: boolean;
+            /**
+             * Planned Days
+             * @default 10
+             */
+            planned_days: number;
+            /**
+             * Learning Goal
+             * @default
+             */
+            learning_goal: string;
             /** Source Type */
             source_type?: string | null;
         };
@@ -1053,6 +1325,11 @@ export interface components {
             parse_error?: string | null;
             /** Outline Status */
             outline_status: string;
+            /**
+             * Use Ai Planning
+             * @default false
+             */
+            use_ai_planning: boolean;
             progress?: components["schemas"]["ProgressInfo"] | null;
             /** Last Learned At */
             last_learned_at?: string | null;
@@ -1356,6 +1633,41 @@ export interface operations {
             };
         };
     };
+    precheck_study_api_studies__study_id__precheck_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PrecheckBody"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrecheckResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reparse_source_api_sources__source_id__reparse_post: {
         parameters: {
             query?: never;
@@ -1406,9 +1718,239 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["ReembedResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    original_source_api_sources__source_id__original_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_asset_api_sources__source_id__assets__asset_path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: number;
+                asset_path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_api_studies__study_id__planning_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Estimate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_studies__study_id__planning_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanningStartBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proposal_api_studies__study_id__planning_proposal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningProposalView"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_api_studies__study_id__planning_proposal_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalApplyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalApplyResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_api_studies__study_id__planning_proposal_decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalDeclineBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalDeclineResult"];
                 };
             };
             /** @description Validation Error */
@@ -1471,39 +2013,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OutlineStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    outline_replan_api_studies__study_id__outline_replan_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                study_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
                 };
             };
             /** @description Validation Error */

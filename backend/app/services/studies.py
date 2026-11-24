@@ -43,6 +43,7 @@ def create_study(
     filename: str,
     content: bytes,
     idempotency_key: str | None,
+    use_ai_planning: bool = False,
 ) -> tuple[Study, bool]:
     """返回 (study, created)。幂等键去重（P1-05）；文件落盘不与事务混写（P2-05）。"""
     name = name.strip()
@@ -67,7 +68,7 @@ def create_study(
     stored_name = safe_stored_name(type_)
 
     try:
-        study = Study(name=name)
+        study = Study(name=name, use_ai_planning=use_ai_planning)
         db.add(study)
         db.flush()
         source = Source(
@@ -126,6 +127,7 @@ def list_studies(db: Session) -> list[dict[str, object]]:
                 "parse_status": source.parse_status if source else None,
                 "parse_error": source.parse_error if source else None,
                 "outline_status": study.outline_status,
+                "use_ai_planning": study.use_ai_planning,
                 "progress": progress.as_dict() if progress.total else None,
                 "last_learned_at": study.last_learned_at,
                 "last_kp": last_kp,
@@ -143,6 +145,9 @@ def get_study(db: Session, study_id: int) -> dict[str, object]:
         "scheme": study.scheme,
         "outline_thesis": study.outline_thesis,
         "outline_status": study.outline_status,
+        "use_ai_planning": study.use_ai_planning,
+        "planned_days": study.planned_days,
+        "learning_goal": study.learning_goal,
         "source_type": source.type if source else None,
     }
 

@@ -1,6 +1,6 @@
-"""BetterOneself V0.1 后端入口。
+"""BetterOneself V0.1.1 后端入口。
 
-启动时：Alembic 单个 init revision 建库 → 中断任务恢复 → 孤儿文件清理。
+启动时：Alembic 迁移建库/升级 → 中断任务恢复 → 孤儿文件清理。
 默认仅本机监听；单机单用户，无账号（技术方案 §11）。
 """
 
@@ -17,6 +17,7 @@ from starlette.responses import FileResponse
 
 from app.api.deps import app_error_handler, unhandled_error_handler
 from app.api.knowledge import router as knowledge_router
+from app.api.planning import router as planning_router
 from app.api.sessions import router as sessions_router
 from app.api.settings import router as settings_router
 from app.api.studies import router as studies_router
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_migrations() -> None:
-    """空库起步：Alembic 单个 init revision（数据模型 §1）。"""
+    """Alembic 迁移到 head：空库起步或从 V0.1 库升级（数据模型 §1、V0.1.1 技术设计 §5）。"""
     from alembic.config import Config
 
     from alembic import command
@@ -84,6 +85,7 @@ def create_app() -> FastAPI:
 
     app.include_router(studies_router, prefix="/api/studies")
     app.include_router(sources_router, prefix="/api")
+    app.include_router(planning_router, prefix="/api")
     app.include_router(knowledge_router, prefix="/api")
     app.include_router(sessions_router, prefix="/api")
     app.include_router(settings_router, prefix="/api")

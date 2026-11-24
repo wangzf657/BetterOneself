@@ -80,15 +80,18 @@ Agent 通常由感知、记忆、规划与执行模块组成。
 """
 
 
-def make_book_db(db, *, name: str = "测试书", content: str = BOOK, filename: str = "b.txt"):
-    """建书并跑完阶段 A/B（不触发后续 followups）。"""
+def make_book_db(
+    db, *, name: str = "测试书", content: str = BOOK, filename: str = "b.txt",
+    use_ai_planning: bool = False,
+):
+    """建书并跑完阶段 A/B（不起预检线程，由各用例自己驱动）。"""
     from app.services import pipeline
     from app.services.studies import create_study
 
     study, _ = create_study(db, name=name, filename=filename, content=content.encode("utf-8"),
-                            idempotency_key=None)
+                            idempotency_key=None, use_ai_planning=use_ai_planning)
     assert study.primary_source_id is not None
-    pipeline.run_parse(study.primary_source_id)
+    pipeline.run_parse(study.primary_source_id, start_precheck=False)
     db.expire_all()
     return study
 
@@ -103,3 +106,21 @@ def get_study(db):
     from app.models import Study
 
     return db.query(Study).order_by(Study.id).first()
+
+
+def api_client():
+    """TestClient：测试已自行建库，跳过启动迁移与恢复。"""
+    from contextlib import asynccontextmanager
+
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    app = create_app()
+
+    @asynccontextmanager
+    async def noop_lifespan(app):
+        yield
+
+    app.router.lifespan_context = noop_lifespan  # type: ignore[assignment]
+    return TestClient(app, base_url="http://127.0.0.1:8000")

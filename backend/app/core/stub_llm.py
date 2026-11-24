@@ -165,9 +165,47 @@ def _plan(messages: Sequence[dict[str, str]]) -> str:
                 "reason": "前两章同属基础部分，按书的逻辑合并为一个部分（桩规划演示用）。",
             }
         )
+    # 首个含两个相邻叶节点的章 → 一条 merge：让建议有两类操作可逐条勾选
+    parents = {n["parent_id"] for n in nodes if isinstance(n, dict) and n.get("parent_id") is not None}
+    leaves_by_parent: dict[object, list[dict[str, Any]]] = {}
+    for n in nodes:
+        if (
+            isinstance(n, dict)
+            and n.get("parent_id") is not None
+            and n["id"] not in parents
+            and not n.get("excluded")
+        ):
+            leaves_by_parent.setdefault(n["parent_id"], []).append(n)
+    for leaves in leaves_by_parent.values():
+        if len(leaves) >= 2:
+            ops.append(
+                {
+                    "op": "merge",
+                    "node_ids": [leaves[0]["id"], leaves[1]["id"]],
+                    "title": "基础小节合并（桩规划）",
+                    "reason": "两个相邻小节篇幅都很短，合并为一个学习单元更合适（桩规划演示用）。",
+                }
+            )
+            break
     return json.dumps(
         {"thesis": _THESIS, "operations": ops}, ensure_ascii=False
     )
+
+
+def embed_texts(texts: Sequence[str], *, dim: int) -> list[list[float]]:
+    """确定性 embedding 桩：字符袋向量（非零，相近文本距离相近）。"""
+    import math
+
+    out: list[list[float]] = []
+    for t in texts:
+        vec = [0.0] * dim
+        for ch in t:
+            vec[ord(ch) % dim] += 1.0
+        if not any(vec):
+            vec[0] = 1.0
+        norm = math.sqrt(sum(x * x for x in vec))
+        out.append([round(x / norm, 6) for x in vec])
+    return out
 
 
 def complete(messages: Sequence[dict[str, str]], *, scene: str) -> str:

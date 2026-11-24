@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge, Input, Label } from "@/components/ui/basics";
 
 const SCENE_LABEL: Record<string, string> = {
-  outline: "拟大纲",
+  outline: "AI 规划",
   tutor: "讲解与问答",
   quiz: "出题与评语",
   embed: "资料向量化",
@@ -86,6 +86,7 @@ function embedStatusText(s: string): string {
       ready: "就绪",
       degraded: "降级",
       failed: "失败",
+      precheck_failed: "预检失败",
     } as Record<string, string>
   )[s] ?? s;
 }

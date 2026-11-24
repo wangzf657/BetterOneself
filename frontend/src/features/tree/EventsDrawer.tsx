@@ -16,8 +16,10 @@ function summaryOf(e: { detail?: Record<string, unknown> }): Record<string, numb
 const EVENT_LABEL: Record<string, string> = {
   structure_built: "结构识别",
   planning_started: "AI 规划开始",
-  planning_finished: "AI 规划完成",
+  planning_proposed: "AI 规划建议已生成",
+  planning_finished: "AI 规划已应用",
   planning_skipped: "AI 规划跳过",
+  planning_declined: "全部拒绝规划建议",
   planning_failed: "AI 规划失败",
   planning_conflict_skipped: "AI 操作跳过（冲突）",
   kp_created: "AI 建立节点",
@@ -101,7 +103,7 @@ export default function EventsDrawer({
           ) : (
             <p className="mt-1 text-amber-600">
               {preview?.planning_running
-                ? "拟大纲进行中，暂不可恢复"
+                ? "AI 规划进行中，暂不可恢复"
                 : `已有学习证据（${preview?.evidence_kps.slice(0, 3).join("、")}${(preview?.evidence_kps.length ?? 0) > 3 ? " 等" : ""}），不能整体恢复；请改用逐个排除`}
             </p>
           )}
@@ -128,7 +130,7 @@ export default function EventsDrawer({
             )}
             {e.event_type === "planning_finished" && !!detail(e).adjust_summary && (
               <div className="text-xs text-ink-soft">
-                {`实际应用 ${Number(summaryOf(e).applied ?? 0)} 项${Number(summaryOf(e).skipped ?? 0) > 0 ? `，跳过 ${Number(summaryOf(e).skipped)} 项` : ""}`}
+                {`实际应用 ${Number(summaryOf(e).applied ?? 0)} 项${Number(summaryOf(e).skipped ?? 0) > 0 ? `，跳过 ${Number(summaryOf(e).skipped)} 项` : ""}${declinedCount(e) > 0 ? `，你未选 ${declinedCount(e)} 项` : ""}`}
               </div>
             )}
             {(e.event_type === "kp_excluded" || e.event_type === "kp_restored") &&
@@ -147,6 +149,11 @@ export default function EventsDrawer({
 
 function actorLabel(actor: string): string {
   return { structure: "结构识别", ai: "AI", user: "我", system: "系统" }[actor] ?? actor;
+}
+
+function declinedCount(e: { detail?: Record<string, unknown> }): number {
+  const list = e.detail?.declined_by_user;
+  return Array.isArray(list) ? list.length : 0;
 }
 
 function formatProgress(p: Record<string, number>): string {
