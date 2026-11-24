@@ -61,7 +61,8 @@ export default function DetailPanel({
   const wasLearningUnit = node.excluded && (node.children?.length ?? 0) === 0;
   const isContainer = !node.is_learning_unit && !wasLearningUnit;
   return (
-    <aside className="fixed right-8 top-32 z-20 w-80 rounded-lg border bg-white p-5 shadow-lg">
+    // 停靠在主工作区右列（TreePage 布局承载宽度）：不做浮层，不遮挡行菜单与双进度区
+    <aside className="rounded-lg border bg-white p-5 shadow-sm">
       <button className="absolute right-3 top-3 text-ink-soft hover:text-ink" onClick={onClose}>
         <X size={15} />
       </button>

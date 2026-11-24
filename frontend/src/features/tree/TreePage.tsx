@@ -213,37 +213,41 @@ export default function TreePage() {
         </button>
       </div>
 
-      {/* 主工作区 */}
-      {pathChapter ? (
-        <ChapterPathView
-          studyId={studyId}
-          chapter={pathChapter}
-          onSelect={setSelectedId}
-          selectedId={selectedId}
-          onBackToMap={() => setPathChapter(null)}
-          onEnterChapter={setPathChapter}
-          nodes={nodes}
-        />
-      ) : activeView === "starmap" && hasChapter ? (
-        <StarMapView tree={tree} onSelect={setSelectedId} onEnterChapter={setPathChapter} />
-      ) : (
-        <WorkTreeView
-          studyId={studyId}
-          tree={tree}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-        />
-      )}
-
-      {/* 详情面板 */}
-      {selected && (
-        <DetailPanel
-          key={selected.id}
-          studyId={studyId}
-          node={selected}
-          onClose={() => setSelectedId(null)}
-        />
-      )}
+      {/* 主工作区 + 详情面板（停靠右列，不做浮层——不遮挡行菜单与双进度区） */}
+      <div className="flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          {pathChapter ? (
+            <ChapterPathView
+              studyId={studyId}
+              chapter={pathChapter}
+              onSelect={setSelectedId}
+              selectedId={selectedId}
+              onBackToMap={() => setPathChapter(null)}
+              onEnterChapter={setPathChapter}
+              nodes={nodes}
+            />
+          ) : activeView === "starmap" && hasChapter ? (
+            <StarMapView tree={tree} onSelect={setSelectedId} onEnterChapter={setPathChapter} />
+          ) : (
+            <WorkTreeView
+              studyId={studyId}
+              tree={tree}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          )}
+        </div>
+        {selected && (
+          <div className="w-80 shrink-0">
+            <DetailPanel
+              key={selected.id}
+              studyId={studyId}
+              node={selected}
+              onClose={() => setSelectedId(null)}
+            />
+          </div>
+        )}
+      </div>
 
       <EventsDrawer studyId={studyId} open={eventsOpen} onOpenChange={setEventsOpen} />
       <RenameBookDialog
@@ -392,9 +396,9 @@ function BookMenu({
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-red-600"
-            onSelect={(e) => {
-              e.preventDefault();
-              setDeleteOpen(true);
+            onSelect={() => {
+              // 同行菜单弹窗：先让菜单卸载释放模态层，再开弹窗
+              setTimeout(() => setDeleteOpen(true), 0);
             }}
           >
             删除（影响清单）

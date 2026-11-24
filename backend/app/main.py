@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, Response
 
 from app.api.deps import app_error_handler, unhandled_error_handler
 from app.api.knowledge import router as knowledge_router
@@ -51,6 +51,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
+class _ImmutableAssets(StaticFiles):
+    """哈希文件名的构建产物：内容变则路径变，可长缓存（升级后入口页 no-cache 即可换新）。"""
+
+    async def get_response(self, path: str, scope: dict[str, object]) -> Response:  # type: ignore[override]
+        resp = await super().get_response(path, scope)
+        if resp.status_code == 200:
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resp
+
+
 def _mount_frontend(app: FastAPI) -> None:
     # 打包后前端构建产物按 frontend_dist/ 收进资源目录（技术方案 §14.2）
     dist = BACKEND_DIR / "frontend_dist" if FROZEN else BACKEND_DIR.parent / "frontend" / "dist"
@@ -58,18 +68,19 @@ def _mount_frontend(app: FastAPI) -> None:
         return
     assets = dist / "assets"
     if assets.exists():
-        app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
+        app.mount("/assets", _ImmutableAssets(directory=str(assets)), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa(full_path: str) -> FileResponse:
         candidate = dist / full_path
         if full_path and candidate.is_file() and dist in candidate.resolve().parents:
-            return FileResponse(str(candidate))
-        return FileResponse(str(dist / "index.html"))
+            return FileResponse(str(candidate), headers={"Cache-Control": "no-cache"})
+        # 入口页每次都向服务器校验：升级后用户立刻拿到新版本，不吞掉发布
+        return FileResponse(str(dist / "index.html"), headers={"Cache-Control": "no-cache"})
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="BetterOneself", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="BetterOneself", version="0.1.1", lifespan=lifespan)
     cfg = get_config()
 
     app.add_middleware(OriginCheckMiddleware)

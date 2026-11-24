@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { KnowledgeNode, KnowledgeTree } from "@/api/client";
 import { Badge, Input } from "@/components/ui/basics";
 import {
@@ -9,6 +9,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/menu";
+import { Dialog, DialogClose, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { client, errDetail, type ExcludeImpact } from "@/api/client";
 import { cn } from "@/lib/utils";
 import { NodeStatusDot } from "./TreePage";
 import { useDissolve, useExclude, useRename, useRestore } from "./treeApi";
@@ -217,95 +221,122 @@ function Row({
 }
 
 function NodeMenu({ studyId, node }: { studyId: number; node: KnowledgeNode }) {
-  const rename = useRename(studyId);
   const exclude = useExclude(studyId);
   const restore = useRestore(studyId);
   const dissolve = useDissolve(studyId);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className="rounded px-1.5 text-ink-soft hover:bg-black/10"
-        onClick={(e) => e.stopPropagation()}
-      >
-        ···
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <RenameItem onRename={(name) => rename.mutate({ kpId: node.id, name })} initial={node.name} />
-        {node.excluded ? (
-          <DropdownMenuItem onSelect={() => restore.mutate(node.id)}>恢复节点</DropdownMenuItem>
-        ) : (
-          <ExcludeItem
-            kpId={node.id}
-            kpName={node.name}
-            onExclude={(reason) => exclude.mutate({ kpId: node.id, reason })}
-          />
-        )}
-        {node.origin === "ai_group" && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-violet-700" onSelect={() => dissolve.mutate(node.id)}>
-              解散部分分组
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-import { Dialog, DialogClose, DialogContent, DialogHeader } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
-import { client, errDetail, type ExcludeImpact } from "@/api/client";
-
-function RenameItem({ initial, onRename }: { initial: string; onRename: (name: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(initial);
+  // 弹窗状态提升到菜单外：菜单关闭会卸载 DropdownMenuContent 子树，
+  // 弹窗放里面会随菜单一起消失；菜单先卸载释放模态层，再由兄弟节点开弹窗
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [excludeOpen, setExcludeOpen] = useState(false);
   return (
     <>
-      <DropdownMenuItem
-        onSelect={(e) => {
-          e.preventDefault();
-          setName(initial);
-          setOpen(true);
-        }}
-      >
-        重命名
-      </DropdownMenuItem>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader title="重命名节点" desc={`原名称：${initial}`} />
-          <Input value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
-          <div className="mt-4 flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button variant="outline">取消</Button>
-            </DialogClose>
-            <Button
-              disabled={!name.trim()}
-              onClick={() => {
-                onRename(name.trim());
-                setOpen(false);
-              }}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="rounded px-1.5 text-ink-soft hover:bg-black/10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          ···
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem
+            onSelect={() => setTimeout(() => setRenameOpen(true), 0)}
+          >
+            重命名
+          </DropdownMenuItem>
+          {node.excluded ? (
+            <DropdownMenuItem onSelect={() => restore.mutate(node.id)}>恢复节点</DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              onSelect={() => setTimeout(() => setExcludeOpen(true), 0)}
             >
-              保存
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+              排除节点
+            </DropdownMenuItem>
+          )}
+          {node.origin === "ai_group" && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-violet-700" onSelect={() => dissolve.mutate(node.id)}>
+                解散部分分组
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <RenameNodeDialog
+        studyId={studyId}
+        kpId={node.id}
+        initial={node.name}
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+      />
+      {!node.excluded && (
+        <ExcludeNodeDialog
+          kpId={node.id}
+          kpName={node.name}
+          open={excludeOpen}
+          onOpenChange={setExcludeOpen}
+          onExclude={(reason) => exclude.mutate({ kpId: node.id, reason })}
+        />
+      )}
     </>
   );
 }
 
-function ExcludeItem({
+function RenameNodeDialog({
+  studyId,
+  kpId,
+  initial,
+  open,
+  onOpenChange,
+}: {
+  studyId: number;
+  kpId: number;
+  initial: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const rename = useRename(studyId);
+  const [name, setName] = useState(initial);
+  useEffect(() => {
+    if (open) setName(initial);
+  }, [open, initial]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader title="重命名节点" desc={`原名称：${initial}`} />
+        <Input value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
+        <div className="mt-4 flex justify-end gap-2">
+          <DialogClose asChild>
+            <Button variant="outline">取消</Button>
+          </DialogClose>
+          <Button
+            disabled={!name.trim()}
+            onClick={() => {
+              rename.mutate({ kpId, name: name.trim() });
+              onOpenChange(false);
+            }}
+          >
+            保存
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ExcludeNodeDialog({
   kpId,
   kpName,
+  open,
+  onOpenChange,
   onExclude,
 }: {
   kpId: number;
   kpName: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
   onExclude: (reason?: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const { data: impact } = useQuery<ExcludeImpact>({
     queryKey: ["exclude-impact", kpId],
@@ -321,62 +352,40 @@ function ExcludeItem({
   const fmt = (p: ExcludeImpact["progress_before"]) =>
     p ? `${p.lighted} / ${p.total}` : "—（无有效学习单元）";
   return (
-    <>
-      <DropdownItemShim
-        onSelect={() => {
-          setReason("");
-          setOpen(true);
-        }}
-      >
-        排除节点
-      </DropdownItemShim>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader title={`排除「${kpName}」？`} />
-          <ul className="space-y-1.5 text-sm text-ink-soft">
-            <li>· 该节点与子节点退出学习范围；</li>
-            <li>
-              · 点亮进度将从{" "}
-              <b className="text-ink">{fmt(impact?.progress_before)}</b> 变为{" "}
-              <b className="text-ink">{fmt(impact?.progress_after)}</b>
-              {impact?.lighted_affected ? `（含已点亮 ${impact.lighted_affected} 个）` : ""}；
-            </li>
-            <li>· 已有会话与测验记录保留，可随时恢复。</li>
-          </ul>
-          <Input
-            className="mt-3"
-            placeholder="排除原因（可选）"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-          <div className="mt-4 flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button variant="outline">取消</Button>
-            </DialogClose>
-            <Button
-              onClick={() => {
-                onExclude(reason.trim() || undefined);
-                setOpen(false);
-              }}
-            >
-              确认排除
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader title={`排除「${kpName}」？`} />
+        <ul className="space-y-1.5 text-sm text-ink-soft">
+          <li>· 该节点与子节点退出学习范围；</li>
+          <li>
+            · 点亮进度将从{" "}
+            <b className="text-ink">{fmt(impact?.progress_before)}</b> 变为{" "}
+            <b className="text-ink">{fmt(impact?.progress_after)}</b>
+            {impact?.lighted_affected ? `（含已点亮 ${impact.lighted_affected} 个）` : ""}；
+          </li>
+          <li>· 已有会话与测验记录保留，可随时恢复。</li>
+        </ul>
+        <Input
+          className="mt-3"
+          placeholder="排除原因（可选）"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <DialogClose asChild>
+            <Button variant="outline">取消</Button>
+          </DialogClose>
+          <Button
+            onClick={() => {
+              onExclude(reason.trim() || undefined);
+              onOpenChange(false);
+            }}
+          >
+            确认排除
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function DropdownItemShim({ children, onSelect }: { children: React.ReactNode; onSelect: () => void }) {
-  return (
-    <DropdownMenuItem
-      onSelect={(e) => {
-        e.preventDefault();
-        onSelect();
-      }}
-    >
-      {children}
-    </DropdownMenuItem>
-  );
-}

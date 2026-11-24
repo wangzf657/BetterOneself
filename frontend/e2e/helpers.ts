@@ -41,11 +41,38 @@ export function bookFile(): string {
   return join(p, "book.txt");
 }
 
+export const epubFile = () => join(HERE, "assets", "sample.epub");
+export const pdfFile = () => join(HERE, "assets", "sample.pdf");
+
+export const MD_BOOK = `# E2E Markdown 书
+
+## 1.1 检索补足
+
+检索补足只取与当前问题相关的切片，信噪比优先于覆盖率。
+
+![示意图](fig.png)
+
+## 1.2 引用重挂
+
+应用规划后引用随新树重挂，向量与切片零重算。
+`;
+
+export function mdFile(): string {
+  const p = join(HERE, "fixtures");
+  mkdirSync(p, { recursive: true });
+  writeFileSync(join(p, "book.md"), MD_BOOK, "utf-8");
+  return join(p, "book.md");
+}
+
 /** 上传一本书，停在导入页。ai = 勾选「使用 AI 规划」（此时会自动弹消耗确认，页面其余部分对辅助技术隐藏）。 */
-export async function uploadBook(page: Page, name: string, { ai = false } = {}): Promise<void> {
+export async function uploadBook(
+  page: Page,
+  name: string,
+  { ai = false, file }: { ai?: boolean; file?: string } = {},
+): Promise<void> {
   await page.goto("/studies/new");
   await page.fill("#book-name", name);
-  await page.setInputFiles('input[type="file"]', bookFile());
+  await page.setInputFiles('input[type="file"]', file ?? bookFile());
   if (ai) await page.getByRole("checkbox", { name: "使用 AI 规划", exact: false }).check();
   await page.getByRole("button", { name: "导入并查看技能树" }).click();
   if (ai) return;
@@ -72,17 +99,38 @@ export async function openPlanningFromMenu(page: Page): Promise<void> {
   await page.getByText("AI 规划…", { exact: true }).click();
 }
 
-/** 进入章内路径并点第 n 个学习单元的“开始学习”。 */
-export async function openFirstUnit(page: Page, nth = 0): Promise<void> {
+/** 进入章内路径并点第一个学习单元的“开始学习”。 */
+export async function openFirstUnit(page: Page): Promise<void> {
   // 停留星盘：点第一个章星进入章内路径
   await page.locator("[data-stop], .group").first();
   const stars = page.locator("section .group");
   await stars.first().waitFor({ timeout: 20_000 });
   await stars.first().click();
-  const learnBtn = page.getByRole("button", { name: "开始学习" }).nth(nth);
+  // 章内路径「起点在底部」：DOM 序倒排，最后一个按钮才是书中第一个学习单元
+  const learnBtn = page.getByRole("button", { name: "开始学习" }).last();
   await learnBtn.waitFor({ timeout: 20_000 });
   await learnBtn.click();
   await expect(page.getByText("节点状态与口径")).toBeVisible({ timeout: 30_000 });
+}
+
+/** 按节点标题直接进入学习页（原文双视图用，不依赖星盘交互）。 */
+export async function openUnitByTitle(page: Page, studyName: string, title: string): Promise<number> {
+  const list = (await (await page.request.get("/api/studies")).json()) as { id: number; name: string }[];
+  const study = list.find((s) => s.name === studyName);
+  if (!study) throw new Error(`study not found: ${studyName}`);
+  interface Node {
+    id: number;
+    name: string;
+    children?: Node[];
+  }
+  const flat: Node[] = [];
+  const walk = (ns: Node[]) => ns.forEach((n) => { flat.push(n); walk(n.children ?? []); });
+  walk(((await (await page.request.get(`/api/studies/${study.id}/knowledge`)).json()) as { nodes: Node[] }).nodes);
+  const node = flat.find((n) => n.name === title);
+  if (!node) throw new Error(`node not found: ${title}`);
+  await page.goto(`/studies/${study.id}/learn/${node.id}`);
+  await expect(page.getByText("节点状态与口径")).toBeVisible({ timeout: 30_000 });
+  return node.id;
 }
 
 /** 按桩答案作答：Q1=B Q2=C Q3=错 Q4=错；练习随意。 */

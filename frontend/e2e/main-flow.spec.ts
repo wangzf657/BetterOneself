@@ -12,12 +12,11 @@ test("主链路：添加 → 树 → 学 → 测 → 点亮 → 进入下一节�
   await expect(page.getByText("第一章 Agent 导论").first()).toBeVisible();
 
   // 进入学习（章内路径 → 开始学习）
-  await openFirstUnit(page, 0);
+  await openFirstUnit(page);
 
-  // 开场讲解自动出现且带引用（B3-01）
-  await expect(page.locator("sup[data-cite='1'], a[data-cite='1']").first()).toBeVisible({
-    timeout: 30_000,
-  });
+  // 开场讲解自动出现且带引用（B3-01）：等完成态（引用按钮只在完成消息下渲染，
+  // 流式中的角标没有点击处理器，点它不会回跳）
+  await page.getByRole("button", { name: /\[1\] / }).first().waitFor({ timeout: 30_000 });
 
   // 引用回跳：点击角标后原文出现高亮（B3-02）
   await page.locator("sup[data-cite='1']").first().click();
@@ -60,7 +59,7 @@ test("主链路：添加 → 树 → 学 → 测 → 点亮 → 进入下一节�
 test("未通过再考是新题；刷新后作答与判分一致", async ({ page }) => {
   const name = `E2E重考 ${Date.now()}`;
   await createBook(page, name);
-  await openFirstUnit(page, 0);
+  await openFirstUnit(page);
   await expect(page.locator("sup[data-cite='1']").first()).toBeVisible({ timeout: 30_000 });
 
   // 第一组：全错 → 未通过反馈
@@ -85,7 +84,7 @@ test("未通过再考是新题；刷新后作答与判分一致", async ({ page 
 test("点亮后重考失败不灭灯，显示原有点亮保留", async ({ page }) => {
   const name = `E2E不灭灯 ${Date.now()}`;
   await createBook(page, name);
-  await openFirstUnit(page, 0);
+  await openFirstUnit(page);
   await expect(page.locator("sup[data-cite='1']").first()).toBeVisible({ timeout: 30_000 });
 
   // 先点亮
@@ -107,7 +106,7 @@ test("点亮后重考失败不灭灯，显示原有点亮保留", async ({ page 
 test("排除已点亮节点弹窗预览进度变化，应用后一致且可恢复", async ({ page }) => {
   const name = `E2E排除 ${Date.now()}`;
   await createBook(page, name);
-  await openFirstUnit(page, 0);
+  await openFirstUnit(page);
   await expect(page.locator("sup[data-cite='1']").first()).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "考我一组" }).click();
   await answerQuiz(page, true);
@@ -123,15 +122,15 @@ test("排除已点亮节点弹窗预览进度变化，应用后一致且可恢�
   await row.locator("text=···").first().click({ force: true });
   await page.getByText("排除节点", { exact: false }).click();
 
-  // 弹窗预览：1 / 6 → 0 / 5
+  // 弹窗预览：排除的正是已点亮节点，进度 1 / 5 → 0 / 4（点亮数随节点退出）
   const dialog = page.locator("[role='dialog']");
   await expect(dialog.getByText("点亮进度将从", { exact: false })).toBeVisible();
   await expect(dialog.getByText("1 / 5").first()).toBeVisible();
-  await expect(dialog.getByText("1 / 4").first()).toBeVisible();
+  await expect(dialog.getByText("0 / 4").first()).toBeVisible();
   await dialog.getByRole("button", { name: "确认排除" }).click();
 
   // 应用后与预览一致（B2-05）
-  await expect(page.getByText("1 / 4", { exact: false }).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("0 / 4", { exact: false }).first()).toBeVisible({ timeout: 20_000 });
 
   // 恢复后还原
   const excludedRow = page.locator("div.group", { hasText: "什么是 Agent" }).first();
@@ -144,7 +143,7 @@ test("排除已点亮节点弹窗预览进度变化，应用后一致且可恢�
 test("笔记自动保存，刷新不丢", async ({ page }) => {
   const name = `E2E笔记 ${Date.now()}`;
   await createBook(page, name);
-  await openFirstUnit(page, 0);
+  await openFirstUnit(page);
   await expect(page.getByText("位置：", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
 
   // 写笔记 → 自动保存（三态之一“已保存”）

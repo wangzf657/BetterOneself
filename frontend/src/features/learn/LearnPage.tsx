@@ -305,6 +305,7 @@ export default function LearnPage() {
   );
   const sourcePane = (
     <SourcePane
+      studyId={studyId}
       content={content}
       highlightChunkId={highlightChunk}
       onCite={goSource}

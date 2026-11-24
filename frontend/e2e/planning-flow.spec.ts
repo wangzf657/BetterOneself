@@ -92,7 +92,8 @@ test("确认前在原树学习：含证据的条目默认取消；「稍后」�
   await page.getByRole("button", { name: "去确认" }).click();
   const dialog = proposalDialog(page);
   await expect(dialog).toBeVisible();
-  const mergeRow = dialog.locator("li").filter({ hasText: "合并", hasNotText: "章内" });
+  // 用标题定位：分组行的理由文案也含「合并」二字，按词过滤会命中两行
+  const mergeRow = dialog.locator("li").filter({ hasText: "基础小节合并（桩规划）" });
   await expect(mergeRow.getByText("已默认取消，不能应用：子树含学习证据")).toBeVisible();
   await expect(mergeRow.locator("input[type=checkbox]")).toBeDisabled();
   await expect(mergeRow.locator("input[type=checkbox]")).not.toBeChecked();

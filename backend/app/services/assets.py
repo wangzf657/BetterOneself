@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import posixpath
+import re
 import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -82,10 +83,33 @@ def _in_zip(names: set[str], doc_href: str, src: str) -> str | None:
     return name if suffix == ".svg" or suffix in IMAGE_TYPES else None
 
 
+_XML_ENC = re.compile(rb'^\s*<\?xml[^>]*encoding=["\']([\w-]+)["\']')
+
+
+def _decode_doc(raw: bytes) -> str:
+    """EPUB 内容文档按规范为 UTF-8/UTF-16；先按 BOM 与 XML 声明解码再交给解析器，
+    不能让 HTML 解析器对 bytes 自行探测（libxml2 不认 <meta charset>，会错读成 Latin-1）。"""
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return raw.decode("utf-8-sig")
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return raw.decode("utf-16")
+    m = _XML_ENC.match(raw)
+    if m:
+        try:
+            text = raw.decode(m.group(1).decode("ascii"))
+        except (LookupError, UnicodeDecodeError):
+            pass
+        else:
+            # 编码声明已消费；lxml 拒收带 encoding 声明的 str，摘掉声明（声明必为 ASCII，字节偏移即字符偏移）
+            decl_end = raw.find(b"?>")
+            return text[decl_end + 2 :].lstrip() if decl_end != -1 else text
+    return raw.decode("utf-8", errors="replace")
+
+
 def _body_fragment(raw: bytes) -> str:
     """取 body 内部 HTML：整篇交给消毒器会把 <title> 等头部文字漏进正文。"""
     try:
-        doc = lxml_html.fromstring(raw)
+        doc = lxml_html.fromstring(_decode_doc(raw))
     except etree.ParserError:
         return ""
     body = doc if doc.tag == "body" else doc.find(".//body")

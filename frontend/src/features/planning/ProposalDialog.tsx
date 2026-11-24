@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { client, errDetail, type PlanningProposalView, type ProposalOp } from "@/api/client";
 import { Badge } from "@/components/ui/basics";
@@ -49,7 +49,7 @@ export default function ProposalDialog({
   onOpenChange: (v: boolean) => void;
   onDone: () => void;
 }) {
-  const { data: view } = useQuery<PlanningProposalView | null>({
+  const { data: view, refetch } = useQuery<PlanningProposalView | null>({
     queryKey: ["proposal", studyId],
     queryFn: async () => {
       const res = await client.GET("/api/studies/{study_id}/planning/proposal", {
@@ -60,6 +60,11 @@ export default function ProposalDialog({
     },
     enabled: open,
   });
+  // 每次打开都重取：预标注（学习证据/用户编辑）按打开时刻重算，
+  // enabled 翻转不触发 refetch，确认前在原树学习过的话会看到过期结果（B6-04 验收 2）
+  useEffect(() => {
+    if (open) void refetch();
+  }, [open, refetch]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] w-[640px] overflow-y-auto">
@@ -97,6 +102,11 @@ function ProposalBody({
   const invalidate = useInvalidateTree();
   const ops = view.operations;
   const [checked, setChecked] = useState<number[]>(() => ops.map((o, i) => (o.flagged ? -1 : i)).filter((i) => i >= 0));
+  // 打开瞬间可能先渲染重取前的旧结果：flagged 变化后把新冲突条目从已选中剔除
+  useEffect(() => {
+    const allowed = ops.map((o, i) => (o.flagged ? -1 : i)).filter((i) => i >= 0);
+    setChecked((c) => allowed.filter((i) => c.includes(i)));
+  }, [ops]);
   const [confirmDecline, setConfirmDecline] = useState(false);
   const selected = checked.map((i) => ops[i]).filter(Boolean);
   const toggle = (i: number) =>

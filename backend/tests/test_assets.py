@@ -11,7 +11,7 @@ import pytest
 
 from app.ingest.textio import normalize_text
 from app.models import Source
-from app.services.assets import valid_asset_path
+from app.services.assets import sanitize_xhtml, valid_asset_path
 from tests.conftest import BOOK, api_client, get_study, make_book_db
 
 PNG = base64.b64decode(
@@ -91,6 +91,35 @@ def _base(source_id: int) -> str:
 @pytest.fixture
 def epub(db) -> int:
     return _binary_book(db, "图解 EPUB", "b.epub", _epub())
+
+
+def test_spa_cache_headers() -> None:
+    """入口页 no-cache（升级立刻生效，不吞发布）；哈希资产 immutable。"""
+    from app.core.config import BACKEND_DIR
+
+    dist = BACKEND_DIR.parent / "frontend" / "dist"
+    if not (dist / "index.html").is_file():
+        return  # 前端未构建的环境（纯后端 CI）跳过
+    with api_client() as c:
+        r = c.get("/")
+        assert r.status_code == 200
+        assert r.headers["cache-control"] == "no-cache"
+        js = sorted((dist / "assets").glob("index-*.js"))
+        if js:
+            r2 = c.get(f"/assets/{js[-1].name}")
+            assert "immutable" in r2.headers["cache-control"]
+
+
+def test_sanitize_decodes_content_doc_encodings() -> None:
+    """无 XML 声明的 UTF-8 文档曾被他拉丁化（libxml2 不认 <meta charset>）；BOM/UTF-16/声明编码也要认。"""
+    utf8 = "<html><body><p>中文段落保留</p></body></html>".encode()
+    assert "中文段落保留" in sanitize_xhtml(utf8, 1, "x.xhtml", set())
+    utf16 = "<html><body><p>宽编码保留</p></body></html>".encode("utf-16")
+    assert "宽编码保留" in sanitize_xhtml(utf16, 1, "x.xhtml", set())
+    declared = (
+        '<?xml version="1.0" encoding="gb2312"?><html><body><p>声明编码保留</p></body></html>'
+    ).encode("gb2312")
+    assert "声明编码保留" in sanitize_xhtml(declared, 1, "x.xhtml", set())
 
 
 def test_xhtml_asset_is_sanitized(epub) -> None:

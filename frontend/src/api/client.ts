@@ -22,6 +22,7 @@ export type SettingsPayload = components["schemas"]["SettingsPayload"];
 export type UsageRow = components["schemas"]["UsageRow"];
 export type NotePayload = components["schemas"]["NotePayload"];
 export type ChunkDetail = components["schemas"]["ChunkDetail"];
+export type ChunkPayload = components["schemas"]["ChunkPayload"];
 export type NodeContent = components["schemas"]["NodeContent"];
 export type ProgressInfo = components["schemas"]["ProgressInfo"];
 export type Estimate = components["schemas"]["Estimate"];

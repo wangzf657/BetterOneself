@@ -32,8 +32,12 @@ def test_md_full_heading_path_and_lines(tmp_path: Path) -> None:
     drafts = chunk_book(book)
     locs = [d.location for d in drafts]
     assert all(
-        loc["type"] == "lines" and "line_start" in loc and "line_end" in loc for loc in locs
-    )
+        loc["type"] == "lines"
+        and isinstance(loc["line_start"], int)
+        and isinstance(loc["line_end"], int)
+        and loc["line_start"] <= loc["line_end"]
+        for loc in locs
+    )  # 标量行号是回跳与原文定位的坐标系（B6-07；曾误存 span 元组）
     # 标题层级路径写入 level_path
     deep = next(d for d in drafts if d.title == "1.1 背景")
     assert "一 总览" in deep.level_path and "1.1 背景" in deep.level_path

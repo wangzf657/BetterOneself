@@ -29,7 +29,8 @@ def _chunks_from_paragraphs(
             text = "\n\n".join(buf)
             if loc_key is not None:
                 assert buf_start is not None and buf_end is not None
-                loc = {**base_loc, loc_key[0]: buf_start, loc_key[1]: buf_end}
+                # 存标量起止值（buf_* 是 (start, end) span 元组）；location 是前端回跳与原文定位的坐标系
+                loc = {**base_loc, loc_key[0]: buf_start[0], loc_key[1]: buf_end[1]}
             else:
                 loc = dict(base_loc)
             out.append((text, loc))
